@@ -3,11 +3,19 @@
     "description": "Verify FLINK results (ID Austria prefill) in a Laravel backend.",
     "type": "library",
     "license": "MIT",
-    "keywords": ["flink", "id-austria", "eid", "jwt", "jwks", "laravel"],
+    "keywords": [
+        "flink",
+        "id-austria",
+        "eid",
+        "jwt",
+        "jwks",
+        "laravel"
+    ],
     "require": {
         "php": "^8.2",
         "ext-intl": "*",
         "firebase/php-jwt": "^7.0",
+        "guzzlehttp/guzzle": "^7.2",
         "illuminate/cache": "^10.0|^11.0|^12.0",
         "illuminate/http": "^10.0|^11.0|^12.0",
         "illuminate/support": "^10.0|^11.0|^12.0"
@@ -18,20 +26,28 @@
         "phpunit/phpunit": "^10.5|^11.0"
     },
     "autoload": {
-        "psr-4": { "Mohemian\\Flink\\": "src/" }
+        "psr-4": {
+            "Mohemian\\Flink\\": "src/"
+        }
     },
     "autoload-dev": {
-        "psr-4": { "Mohemian\\Flink\\Tests\\": "tests/" }
+        "psr-4": {
+            "Mohemian\\Flink\\Tests\\": "tests/"
+        }
     },
     "extra": {
         "laravel": {
-            "providers": ["Mohemian\\Flink\\FlinkServiceProvider"]
+            "providers": [
+                "Mohemian\\Flink\\FlinkServiceProvider"
+            ]
         }
     },
     "scripts": {
         "test": "phpunit",
         "analyse": "phpstan analyse"
     },
-    "config": { "sort-packages": true },
+    "config": {
+        "sort-packages": true
+    },
     "minimum-stability": "stable"
 }
