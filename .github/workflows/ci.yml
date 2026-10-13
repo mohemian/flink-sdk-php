@@ -21,10 +21,15 @@ jobs:
           - php: '8.4'
             laravel: '10'
         include:
+          # Every Laravel 10.x and 11.x release is under a security advisory with no fix in that line
+          # (fixes ship from 12.60 and in 13.x), so Composer refuses to install them. These jobs
+          # check that the package still runs there; they ship nothing, so they lift the block.
           - laravel: '10'
             testbench: '8'
+            insecure: true
           - laravel: '11'
             testbench: '9'
+            insecure: true
           - laravel: '12'
             testbench: '10'
     steps:
@@ -36,6 +41,10 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: intl, openssl
           coverage: none
+      - if: ${{ matrix.insecure }}
+        run: |
+          composer config policy.advisories.block false
+          composer config audit.block-insecure false
       - run: composer require --no-update "illuminate/support:^${{ matrix.laravel }}.0" "orchestra/testbench:^${{ matrix.testbench }}.0"
       - run: composer update --prefer-dist --no-interaction --no-progress
       - run: vendor/bin/phpunit
