@@ -12,7 +12,7 @@ Using Statamic? Follow [docs/statamic.md](docs/statamic.md) end to end.
 composer require mohemian/flink-sdk-php
 ```
 
-PHP 8.2+, Laravel 10, 11 or 12, `ext-intl`.
+PHP 8.2+ (8.3+ for Laravel 13), Laravel 10 to 13, `ext-intl`.
 
 ```dotenv
 FLINK_TENANT_ID=…   # the console's journey page, "Start & integrate"
