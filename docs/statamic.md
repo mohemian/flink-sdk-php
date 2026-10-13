@@ -213,9 +213,12 @@ class VerifyFlinkPrefill
             );
         }
 
-        // A locked field the journey did not release was never checked, so it is not verified.
+        // A field the journey did not release was never checked, so it is not verified.
         $submission->set('identity_verified', array_diff(self::LOCKED, array_keys($released)) === []);
-        $submission->set('address_verified', array_intersect(self::ADDRESS, $changed) === []);
+        $submission->set(
+            'address_verified',
+            array_diff(self::ADDRESS, array_keys($released)) === [] && array_intersect(self::ADDRESS, $changed) === [],
+        );
 
         // One ID Austria run, one application: the next one in this session needs its own.
         $submission->afterSave(fn () => session()->forget(['flink.reference', 'flink.verified']));
@@ -235,7 +238,8 @@ Laravel 11 and later discover the listener by its type hint. On Laravel 10, regi
 ```
 
 Only fields the journey releases can be compared. A locked field it does not release leaves
-`identity_verified` off rather than passing unchecked, so release all three. If yours does not release the address, drop
+`identity_verified` off rather than passing unchecked, so release all three; likewise an address
+field it does not release leaves `address_verified` off. If yours does not release the address, drop
 `ADDRESS` and `address_verified`.
 
 ## 6. Try it
