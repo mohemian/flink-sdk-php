@@ -1,8 +1,9 @@
 # flink-sdk-php
 
 Verify FLINK results in a Laravel backend. An embedded FLINK journey hands your page the applicant's
-ID Austria data together with a copy signed by FLINK. This package verifies that signed copy, so your
-backend can check that the names and birthdate in a submitted form are the ones ID Austria returned.
+eID data (from ID Austria, for example) together with a copy signed by FLINK. This package verifies
+that signed copy, so your backend can check that the names and birthdate in a submitted form are the
+ones the eID returned.
 
 Using Statamic? Follow [docs/statamic.md](docs/statamic.md) end to end.
 
@@ -32,7 +33,8 @@ On the backend:
 use Mohemian\Flink\Exceptions\InvalidPrefill;
 use Mohemian\Flink\PrefillVerifier;
 
-$verified = app(PrefillVerifier::class)->verify($request->input('prefill_jwt'), session('flink.reference'));
+// Cast both: a missing field or an expired session must fail as InvalidPrefill, not as a TypeError.
+$verified = app(PrefillVerifier::class)->verify((string) $request->input('prefill_jwt'), (string) session('flink.reference'));
 // ['givenName' => 'Erika', 'familyName' => 'Mustermann', 'birthdate' => '1964-08-12', 'address' => [...]]
 
 $changed = PrefillVerifier::diff($submittedValues, $verified); // e.g. ['address.street']
@@ -45,9 +47,14 @@ $changed = PrefillVerifier::diff($submittedValues, $verified); // e.g. ['address
 - `iss` = `FLINK_URL`, `aud` = your page's origin, not expired, `ver` = 1
 - `tenant_id` and `journey` are yours: any FLINK tenant can register your origin, so `aud` alone is
   not enough
-- `method` is one you accept (`allowed_methods`, default `['eid']`: ID Austria only)
+- `method` is one you accept (`allowed_methods`, default `['eid']`). `eid` is any eID provider route
+  (ID Austria, SkIDentity or SK Authentigate); the claim does not say which one
 - `reference` is the one you issued for this session, so a JWT copied from someone else's browser
   fails
+
+A journey with no identity step (email only, say) issues a JWT without `method`, and `verify()`
+refuses it. That is deliberate: nothing in such a JWT is identity-backed, the email address included,
+so it cannot stand in for a verified identity.
 
 `diff()` returns the verified fields the submission changed or left out, as dotted keys. It compares
 strings after trimming and Unicode NFC normalisation, and nothing more. Which changes you accept is

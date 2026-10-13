@@ -12,6 +12,7 @@ return [
     'tenant_id' => env('FLINK_TENANT_ID'),
     'journey' => env('FLINK_JOURNEY'),
 
-    // The onboarding methods whose data you accept as verified. `eid` is ID Austria.
+    // The onboarding methods whose data you accept as verified. `eid` is any eID provider route
+    // (ID Austria, SkIDentity or SK Authentigate); the claim does not name the provider.
     'allowed_methods' => ['eid'],
 ];

@@ -23,9 +23,10 @@ jobs:
           - php: '8.2' # Laravel 13 needs PHP 8.3
             laravel: '13'
         include:
-          # Every Laravel 10.x and 11.x release is under a security advisory with no fix in that line
+          # Every Laravel 10.x and 11.x release is under security advisories with no fix in that line
           # (fixes ship from 12.60 and in 13.x), so Composer refuses to install them. These jobs
-          # check that the package still runs there; they ship nothing, so they lift the block.
+          # check that the package still runs there; they ship nothing, so they ignore exactly those
+          # advisories (below) and Composer still blocks any other one.
           - laravel: '10'
             testbench: '8'
             insecure: true
@@ -46,9 +47,12 @@ jobs:
           extensions: intl, openssl
           coverage: none
       - if: ${{ matrix.insecure }}
-        run: |
-          composer config policy.advisories.block false
-          composer config audit.block-insecure false
+        # The laravel/framework advisories open against every 10.x and 11.x release. A new one fails
+        # the job until it is reviewed and added here.
+        run: >-
+          composer config audit.ignore --json '[
+          "PKSA-d5tc-s1qs-h781", "PKSA-m5cs-t1y6-qpcs", "PKSA-3r5d-mb8f-1qw9", "PKSA-mdq4-51ck-6kdq"
+          ]'
       - run: composer require --no-update "illuminate/support:^${{ matrix.laravel }}.0" "orchestra/testbench:^${{ matrix.testbench }}.0"
       - run: composer update --prefer-dist --no-interaction --no-progress
       - run: vendor/bin/pest
@@ -61,6 +65,12 @@ jobs:
       # Only whether the secret exists; the secret itself reaches the scan step alone.
       HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
     steps:
+      - name: Require SONAR_TOKEN
+        # Fail rather than skip: a skipped scan leaves this job green over code nobody analysed.
+        if: ${{ env.HAS_SONAR_TOKEN != 'true' }}
+        run: |
+          echo "::error title=SONAR_TOKEN missing::SONAR_TOKEN is not available to this repository, so SonarCloud cannot analyse it. An org admin must grant the organisation secret to mohemian/flink-sdk-php."
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0 # SonarCloud needs the history for new-code detection
@@ -73,8 +83,6 @@ jobs:
       - run: composer update --prefer-dist --no-interaction --no-progress
       - run: vendor/bin/pest --coverage-clover coverage/clover.xml
       - name: SonarQube Scan
-        # Skipped until the SONAR_TOKEN secret exists.
-        if: ${{ env.HAS_SONAR_TOKEN == 'true' }}
         uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

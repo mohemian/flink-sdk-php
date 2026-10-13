@@ -1,6 +1,8 @@
 <?php
 
+use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 use Illuminate\Support\Facades\Http;
 use Mohemian\Flink\Exceptions\InvalidPrefill;
 use Mohemian\Flink\PrefillVerifier;
@@ -37,11 +39,14 @@ it('rejects a signature by another key', function () {
 })->throws(InvalidPrefill::class);
 
 it('rejects an HMAC token under a known kid', function () {
-    // The classic confusion: HS256 keyed with the public key's text.
-    $hmac = JWT::encode($this->claims([]), str_repeat('s', 32), 'HS256', 'k1', ['typ' => 'flow-prefill+jwt']);
+    // The classic confusion: HS256 keyed with the published key's PEM text, which anyone can derive
+    // from the JWKS. The token is valid under that confusion, so only the verifier stops it.
+    $pem = openssl_pkey_get_details(JWK::parseKey(TestCase::key('k1')['jwk'])->getKeyMaterial())['key'];
+    $hmac = JWT::encode($this->claims([]), $pem, 'HS256', 'k1', ['typ' => 'flow-prefill+jwt']);
+    expect(JWT::decode($hmac, new Key($pem, 'HS256'))->tenant_id)->toBe(TestCase::TENANT);
 
-    $this->verifier()->verify($hmac, TestCase::REF);
-})->throws(InvalidPrefill::class);
+    expect(fn () => $this->verifier()->verify($hmac, TestCase::REF))->toThrow(InvalidPrefill::class);
+});
 
 it('rejects garbage', function () {
     $this->verifier()->verify('not.a.jwt', TestCase::REF);
@@ -64,8 +69,12 @@ it('refetches the JWKS once for an unknown kid', function () {
     $verifier->verify($this->jwt([]), TestCase::REF);
     expect($verifier->verify($this->jwt(['jti' => 'j2'], ['kid' => 'k2']), TestCase::REF))->toBe(['givenName' => 'Erika']);
 
+    // The refetched set is cached: the next k2 token verifies without another fetch, even though
+    // the minute's refetch is spent.
+    expect($verifier->verify($this->jwt(['jti' => 'j3'], ['kid' => 'k2']), TestCase::REF))->toBe(['givenName' => 'Erika']);
+
     // A third unknown kid within the minute does not hit the endpoint again.
-    expect(fn () => $verifier->verify($this->jwt(['jti' => 'j3'], ['kid' => 'k3']), TestCase::REF))->toThrow(InvalidPrefill::class);
+    expect(fn () => $verifier->verify($this->jwt(['jti' => 'j4'], ['kid' => 'k3']), TestCase::REF))->toThrow(InvalidPrefill::class);
     Http::assertSentCount(2);
 });
 

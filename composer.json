@@ -1,6 +1,6 @@
 {
     "name": "mohemian/flink-sdk-php",
-    "description": "Verify FLINK results (ID Austria prefill) in a Laravel backend.",
+    "description": "Verify FLINK results (eID prefill, such as ID Austria) in a Laravel backend.",
     "type": "library",
     "license": "MIT",
     "keywords": [

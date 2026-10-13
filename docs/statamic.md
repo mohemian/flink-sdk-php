@@ -35,7 +35,8 @@ FLINK_JOURNEY=SCD7DDPK258G
 ```
 
 The package verifies against FLINK's published keys, which it fetches and caches. It accepts only
-data that came from ID Austria; to change that, publish the config
+data that came from an eID route (`eid`: ID Austria, SkIDentity or SK Authentigate; the JWT does not
+say which); to change that, publish the config
 (`php artisan vendor:publish --tag=flink-config`) and edit `allowed_methods`.
 
 ## 2. A reference per visitor
@@ -258,4 +259,4 @@ The logged reason says which check failed. The usual causes:
 | `Claim reference does not match`                 | The page is statically cached, or the session cookie did not reach the route   |
 | `Claim journey does not match`                   | `FLINK_JOURNEY` is another journey's id                                        |
 | `Claim tenant_id does not match`                 | `FLINK_TENANT_ID` is another tenant's                                          |
-| `The data does not come from an accepted method` | The journey offers a route other than ID Austria that `allowed_methods` excludes |
+| `The data does not come from an accepted method` | The journey ran a route other than eID that `allowed_methods` excludes, or has no identity step at all (email only) |
