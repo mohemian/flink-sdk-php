@@ -202,7 +202,8 @@ class VerifyFlinkPrefill
         foreach ($fields as $handle => $field) {
             $submitted[$field] = $submission->get($handle);
         }
-        $changed = PrefillVerifier::diff($submitted, Arr::only(Arr::dot($verified), array_values($fields)));
+        $released = Arr::dot($verified);
+        $changed = PrefillVerifier::diff($submitted, Arr::only($released, array_values($fields)));
 
         $lockedChanged = array_intersect(self::LOCKED, $changed);
         if ($lockedChanged !== []) {
@@ -211,7 +212,8 @@ class VerifyFlinkPrefill
             );
         }
 
-        $submission->set('identity_verified', true);
+        // A locked field the journey did not release was never checked, so it is not verified.
+        $submission->set('identity_verified', array_diff(self::LOCKED, array_keys($released)) === []);
         $submission->set('address_verified', array_intersect(self::ADDRESS, $changed) === []);
 
         // One ID Austria run, one application: the next one in this session needs its own.
@@ -231,7 +233,8 @@ Laravel 11 and later discover the listener by its type hint. On Laravel 10, regi
 \Statamic\Events\FormSubmitted::class => [\App\Listeners\VerifyFlinkPrefill::class],
 ```
 
-Only fields the journey releases can be compared: if yours does not release the address, drop
+Only fields the journey releases can be compared. A locked field it does not release leaves
+`identity_verified` off rather than passing unchecked, so release all three. If yours does not release the address, drop
 `ADDRESS` and `address_verified`.
 
 ## 6. Try it

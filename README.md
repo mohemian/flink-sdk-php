@@ -1,8 +1,8 @@
 # flink-sdk-php
 
-Verify FLINK results in a Laravel backend. Today: the signed ID Austria **prefill** an embedded
-FLINK journey hands your page, so your backend knows the names and birthdate in a submitted form are
-the ones ID Austria returned and not whatever the browser sent.
+Verify FLINK results in a Laravel backend. An embedded FLINK journey hands your page the applicant's
+ID Austria data together with a copy signed by FLINK. This package verifies that signed copy, so your
+backend can check that the names and birthdate in a submitted form are the ones ID Austria returned.
 
 Using Statamic? Follow [docs/statamic.md](docs/statamic.md) end to end.
 

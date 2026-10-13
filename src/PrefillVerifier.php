@@ -77,7 +77,8 @@ final class PrefillVerifier
         $submitted = Arr::dot($submitted);
         $changed = [];
         foreach (Arr::dot($verified) as $field => $value) {
-            if (! array_key_exists($field, $submitted) || self::normalise($submitted[$field]) !== self::normalise($value)) {
+            $theirs = array_key_exists($field, $submitted) ? self::normalise($submitted[$field]) : null;
+            if ($theirs === null || $theirs !== self::normalise($value)) {
                 $changed[] = (string) $field;
             }
         }
@@ -104,8 +105,12 @@ final class PrefillVerifier
         return json_decode((string) json_encode($payload), true);
     }
 
-    private static function normalise(mixed $value): string
+    /** `null` for what is not a scalar (a client can post `field[]=`), which never matches. */
+    private static function normalise(mixed $value): ?string
     {
+        if ($value !== null && ! is_scalar($value)) {
+            return null;
+        }
         $string = is_bool($value) ? ($value ? '1' : '0') : trim((string) $value);
 
         return \Normalizer::normalize($string, \Normalizer::FORM_C) ?: $string;

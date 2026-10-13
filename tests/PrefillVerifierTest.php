@@ -87,3 +87,9 @@ it('diffs changed and missing fields only', function () {
     expect(PrefillVerifier::diff($submitted, $verified))->toBe(['familyName', 'address.street'])
         ->and(PrefillVerifier::diff([], ['familyName' => 'Mustermann']))->toBe(['familyName']);
 });
+
+it('diffs a non-scalar submitted value as changed instead of failing', function () {
+    // A client can post givenName[]=, which reaches diff() as an array.
+    expect(PrefillVerifier::diff(['givenName' => [], 'familyName' => ['x' => 'y']], ['givenName' => 'Erika', 'familyName' => 'Mustermann']))
+        ->toBe(['givenName', 'familyName']);
+});
