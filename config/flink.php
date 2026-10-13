@@ -1,0 +1,17 @@
+<?php
+
+return [
+    // Base URL of flink-services. It is the `iss` of every assertion, and the JWKS is served under it.
+    'url' => env('FLINK_URL', 'https://flink-services.mohemian.rocks'),
+
+    // The origin of the page that embeds the journey: the prefill JWT's `aud`. Defaults to APP_URL's.
+    'audience' => env('FLINK_AUDIENCE'),
+
+    // Your tenant and journey (its public id, as on the console's Start & integrate tab). Both are
+    // required: any tenant can list your origin as an allowed origin, so `aud` alone is not enough.
+    'tenant_id' => env('FLINK_TENANT_ID'),
+    'journey' => env('FLINK_JOURNEY'),
+
+    // The onboarding methods whose data you accept as verified. `eid` is ID Austria.
+    'allowed_methods' => ['eid'],
+];
