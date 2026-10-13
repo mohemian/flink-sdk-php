@@ -7,10 +7,11 @@ return [
     // The origin of the page that embeds the journey: the prefill JWT's `aud`. Defaults to APP_URL's.
     'audience' => env('FLINK_AUDIENCE'),
 
-    // Your tenant and journey (its public id, as on the console's Start & integrate tab). Both are
-    // required: any tenant can list your origin as an allowed origin, so `aud` alone is not enough.
+    // Your tenant, and the journeys whose prefill you accept: their public ids, comma-separated, as on
+    // the console's Start & integrate tab. Both are required: any tenant can list your origin as an
+    // allowed origin, so `aud` alone is not enough.
     'tenant_id' => env('FLINK_TENANT_ID'),
-    'journey' => env('FLINK_JOURNEY'),
+    'journeys' => env('FLINK_JOURNEYS'),
 
     // The onboarding methods whose data you accept as verified. `eid` is any eID provider route
     // (ID Austria, SkIDentity or SK Authentigate); the claim does not name the provider.

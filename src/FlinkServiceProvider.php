@@ -20,7 +20,7 @@ final class FlinkServiceProvider extends ServiceProvider
                 $url,
                 $config['audience'] ?? self::origin((string) $app['config']['app.url']),
                 (string) ($config['tenant_id'] ?? throw new \RuntimeException('Set FLINK_TENANT_ID')),
-                (string) ($config['journey'] ?? throw new \RuntimeException('Set FLINK_JOURNEY')),
+                self::journeys($config['journeys'] ?? null) ?: throw new \RuntimeException('Set FLINK_JOURNEYS'),
                 array_values($config['allowed_methods']),
             );
         });
@@ -29,6 +29,18 @@ final class FlinkServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->publishes([__DIR__.'/../config/flink.php' => config_path('flink.php')], 'flink-config');
+    }
+
+    /**
+     * `FLINK_JOURNEYS` is a comma-separated string; a published config may hold an array instead.
+     *
+     * @return list<string>
+     */
+    private static function journeys(mixed $journeys): array
+    {
+        $list = is_array($journeys) ? $journeys : explode(',', (string) $journeys);
+
+        return array_values(array_filter(array_map(fn ($journey) => trim((string) $journey), $list), fn ($journey) => $journey !== ''));
     }
 
     /** `https://example.com/apply` → `https://example.com`, the form the JWT's `aud` takes. */

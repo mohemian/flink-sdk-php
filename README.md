@@ -17,7 +17,7 @@ PHP 8.2+ (8.3+ for Laravel 13), Laravel 10 to 13, `ext-intl`.
 
 ```dotenv
 FLINK_TENANT_ID=…   # the console's journey page, "Start & integrate"
-FLINK_JOURNEY=…     # the journey's public id, same place
+FLINK_JOURNEYS=…    # the journey's public id, same place; several comma-separated
 # FLINK_URL=https://flink-services.mohemian.rocks  (default)
 # FLINK_AUDIENCE=https://www.example.at            (default: APP_URL's origin)
 ```
@@ -45,8 +45,8 @@ $changed = PrefillVerifier::diff($submittedValues, $verified); // e.g. ['address
 - signed by FLINK: RS256 only, key chosen by `kid` from FLINK's JWKS (cached a day, refetched at most
   once a minute for an unknown `kid`), header `typ` = `flow-prefill+jwt`
 - `iss` = `FLINK_URL`, `aud` = your page's origin, not expired, `ver` = 1
-- `tenant_id` and `journey` are yours: any FLINK tenant can register your origin, so `aud` alone is
-  not enough
+- `tenant_id` is yours and `journey` is one of `FLINK_JOURNEYS`: any FLINK tenant can register your
+  origin, so `aud` alone is not enough
 - `method` is one you accept (`allowed_methods`, default `['eid']`). `eid` is any eID provider route
   (ID Austria, SkIDentity or SK Authentigate); the claim does not say which one
 - `reference` is the one you issued for this session, so a JWT copied from someone else's browser

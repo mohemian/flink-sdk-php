@@ -23,6 +23,7 @@ it('rejects', function (array $claims, array $header = []) {
     'wrong journey' => [['journey' => 'OTHERJOURNEY']],
     'method not allowed' => [['method' => 'doc']],
     'missing journey' => [['journey' => null]],
+    'journey not a string' => [['journey' => true]],
     'missing method' => [['method' => null]],
     'missing reference' => [['reference' => null]],
     'expired' => [['exp' => time() - 1]],
@@ -31,6 +32,26 @@ it('rejects', function (array $claims, array $header = []) {
     'typ of the results assertion' => [[], ['typ' => 'flow-results+jwt']],
     'unknown kid' => [[], ['kid' => 'k9']],
 ]);
+
+it('verifies a JWT from any configured journey', function () {
+    config(['flink.journeys' => [TestCase::JOURNEY, 'WAE67ZF4XNAT']]);
+
+    expect($this->verifier()->verify($this->jwt(['journey' => 'WAE67ZF4XNAT']), TestCase::REF))->toBe(['givenName' => 'Erika'])
+        ->and(fn () => $this->verifier()->verify($this->jwt(['journey' => 'OTHERJOURNEY']), TestCase::REF))->toThrow(InvalidPrefill::class);
+});
+
+it('reads FLINK_JOURNEYS as a comma-separated list', function () {
+    config(['flink.journeys' => ' SCD7DDPK258G, WAE67ZF4XNAT ,']);
+
+    expect($this->verifier()->verify($this->jwt(['journey' => 'WAE67ZF4XNAT']), TestCase::REF))->toBe(['givenName' => 'Erika'])
+        ->and($this->verifier()->verify($this->jwt([]), TestCase::REF))->toBe(['givenName' => 'Erika']);
+});
+
+it('requires at least one journey', function (mixed $journeys) {
+    config(['flink.journeys' => $journeys]);
+
+    $this->verifier();
+})->throws(RuntimeException::class, 'Set FLINK_JOURNEYS')->with(['unset' => [null], 'empty' => [''], 'only commas' => [' , ']]);
 
 it('rejects a signature by another key', function () {
     $forged = JWT::encode($this->claims([]), TestCase::key('attacker')['private'], 'RS256', 'k1', ['typ' => 'flow-prefill+jwt']);

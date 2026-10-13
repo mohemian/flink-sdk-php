@@ -13,6 +13,7 @@ use Mohemian\Flink\Exceptions\InvalidPrefill;
 final class PrefillVerifier
 {
     /**
+     * @param  list<string>  $journeys
      * @param  list<string>  $allowedMethods
      */
     public function __construct(
@@ -20,7 +21,7 @@ final class PrefillVerifier
         private readonly string $issuer,
         private readonly string $audience,
         private readonly string $tenantId,
-        private readonly string $journey,
+        private readonly array $journeys,
         private readonly array $allowedMethods,
     ) {
     }
@@ -43,13 +44,15 @@ final class PrefillVerifier
             'aud' => $this->audience,
             'ver' => 1,
             'tenant_id' => $this->tenantId,
-            'journey' => $this->journey,
             'reference' => $reference,
         ];
         foreach ($expected as $claim => $value) {
             if (($claims[$claim] ?? null) !== $value) {
                 throw new InvalidPrefill("Claim {$claim} does not match");
             }
+        }
+        if (! in_array($claims['journey'] ?? null, $this->journeys, true)) {
+            throw new InvalidPrefill('Claim journey does not match');
         }
         if (! in_array($claims['method'] ?? null, $this->allowedMethods, true)) {
             throw new InvalidPrefill('The data does not come from an accepted method');
