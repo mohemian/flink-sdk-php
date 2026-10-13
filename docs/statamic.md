@@ -220,6 +220,10 @@ class VerifyFlinkPrefill
 }
 ```
 
+The rotation runs on `afterSave`, which Statamic only calls when the form stores submissions
+(`store: true`, the default). If yours does not store them, clear the two session keys at the end of
+`handle()` instead.
+
 Laravel 11 and later discover the listener by its type hint. On Laravel 10, register it in
 `App\Providers\EventServiceProvider::$listen`:
 
