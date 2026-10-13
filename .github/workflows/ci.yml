@@ -28,8 +28,10 @@ jobs:
           - laravel: '12'
             testbench: '10'
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ matrix.php }}
           extensions: intl, openssl
@@ -38,3 +40,28 @@ jobs:
       - run: composer update --prefer-dist --no-interaction --no-progress
       - run: vendor/bin/phpunit
       - run: vendor/bin/phpstan analyse --no-progress
+
+  sonar:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    env:
+      # Only whether the secret exists; the secret itself reaches the scan step alone.
+      HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # SonarCloud needs the history for new-code detection
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          extensions: intl, openssl
+          coverage: pcov
+      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: vendor/bin/phpunit --coverage-clover coverage/clover.xml
+      - name: SonarQube Scan
+        # Skipped until the SONAR_TOKEN secret exists.
+        if: ${{ env.HAS_SONAR_TOKEN == 'true' }}
+        uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
