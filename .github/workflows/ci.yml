@@ -47,7 +47,7 @@ jobs:
           composer config audit.block-insecure false
       - run: composer require --no-update "illuminate/support:^${{ matrix.laravel }}.0" "orchestra/testbench:^${{ matrix.testbench }}.0"
       - run: composer update --prefer-dist --no-interaction --no-progress
-      - run: vendor/bin/phpunit
+      - run: vendor/bin/pest
       - run: vendor/bin/phpstan analyse --no-progress
 
   sonar:
@@ -67,7 +67,7 @@ jobs:
           extensions: intl, openssl
           coverage: pcov
       - run: composer update --prefer-dist --no-interaction --no-progress
-      - run: vendor/bin/phpunit --coverage-clover coverage/clover.xml
+      - run: vendor/bin/pest --coverage-clover coverage/clover.xml
       - name: SonarQube Scan
         # Skipped until the SONAR_TOKEN secret exists.
         if: ${{ env.HAS_SONAR_TOKEN == 'true' }}

@@ -61,8 +61,8 @@ it as soon as it arrives (it expires 5 minutes after the journey ends), and do n
 
 ```bash
 composer install
-composer test
-composer analyse
+composer test      # Pest
+composer analyse   # PHPStan
 ```
 
 ## License
