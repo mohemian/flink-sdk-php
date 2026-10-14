@@ -65,7 +65,7 @@ final readonly class Flink
         if (! is_subclass_of($type, Assertion::class)) {
             throw new \InvalidArgumentException("{$type} is not a FLINK assertion");
         }
-        $expected += $type::expectations($this->app);
+        $expected = $type::expected($this->app, $expected);
         $verifier = $this->app->make(Verifier::class);
 
         try {

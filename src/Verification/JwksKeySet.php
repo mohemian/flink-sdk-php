@@ -62,6 +62,13 @@ final readonly class JwksKeySet implements KeySet
             throw KeysUnavailable::from($this->url, $e);
         }
 
-        return array_column(is_array($keys) ? $keys : [], null, 'kid');
+        $keys = is_array($keys) ? array_column(array_filter($keys, is_array(...)), null, 'kid') : [];
+        // A response without a usable key set is an outage, not a rotation: never cache it over
+        // the keys that work.
+        if ($keys === []) {
+            throw KeysUnavailable::from($this->url, new \UnexpectedValueException('the response holds no keys'));
+        }
+
+        return $keys;
     }
 }

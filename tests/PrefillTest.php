@@ -233,3 +233,18 @@ it('treats an empty FLINK_AUDIENCE as unset', function (): void {
 
     expect(Flink::prefill($this->jwt([]), TestCase::REF)->data)->toBe(['givenName' => 'Erika']);
 });
+
+it('keeps the cached keys when a refetch returns no key set', function (mixed $body): void {
+    Flink::prefill($this->jwt([]), TestCase::REF); // caches k1
+    $this->bodies = [$body];
+
+    expect(fn () => Flink::prefill($this->jwt([], ['kid' => 'k2']), TestCase::REF))->toThrow(KeysUnavailable::class)
+        ->and(Flink::prefill($this->jwt([]), TestCase::REF)->data)->toBe(['givenName' => 'Erika']);
+})->with(['no keys' => [['foo' => 'bar']], 'keys not a list' => [['keys' => 'x']], 'empty keys' => [['keys' => []]]]);
+
+it('does not cache an unusable first key set', function (): void {
+    $this->bodies = [['keys' => []]]; // then the real key set
+
+    expect(fn () => Flink::prefill($this->jwt([]), TestCase::REF))->toThrow(KeysUnavailable::class)
+        ->and(Flink::prefill($this->jwt([]), TestCase::REF)->data)->toBe(['givenName' => 'Erika']);
+});

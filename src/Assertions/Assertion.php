@@ -19,13 +19,32 @@ abstract class Assertion
 
     /**
      * What the claims must match by default, read from config (and, for a prefill, the session).
-     * The caller of `Flink::verify()` can override any of them.
+     * Each is a closure, so a default the caller overrides is never read and its configuration is
+     * not required.
      *
+     * @return array<string, \Closure(): mixed>
+     */
+    abstract public static function expectations(Container $app): array;
+
+    /**
+     * The expectations to check: `$overrides` (from the caller of `Flink::verify()`), and the
+     * default for every key they do not supply.
+     *
+     * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
      *
      * @throws MissingConfiguration
      */
-    abstract public static function expectations(Container $app): array;
+    public static function expected(Container $app, array $overrides = []): array
+    {
+        foreach (static::expectations($app) as $key => $default) {
+            if (! array_key_exists($key, $overrides)) {
+                $overrides[$key] = $default();
+            }
+        }
+
+        return $overrides;
+    }
 
     /**
      * @param  array<string, mixed>  $claims  already verified by `Verifier`

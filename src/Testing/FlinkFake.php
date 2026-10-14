@@ -38,7 +38,7 @@ final readonly class FlinkFake
      */
     public function prefill(array $data = ['givenName' => 'Erika', 'familyName' => 'Mustermann'], array $claims = []): string
     {
-        $expected = PrefillAssertion::expectations($this->app);
+        $expected = PrefillAssertion::expected($this->app);
 
         return $this->sign(PrefillAssertion::type(), $claims + [
             'aud' => $expected['aud'],
@@ -57,7 +57,7 @@ final readonly class FlinkFake
     public function results(array $results = [], array $claims = []): string
     {
         return $this->sign(ResultsAssertion::type(), $claims + [
-            'aud' => ResultsAssertion::expectations($this->app)['aud'],
+            'aud' => ResultsAssertion::expected($this->app)['aud'],
             'results' => $results,
         ]);
     }

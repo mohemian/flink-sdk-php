@@ -67,3 +67,10 @@ it('never accepts one type as another through verify()', function (): void {
 it('refuses a type that is not an assertion', function (): void {
     Flink::verify($this->jwt([]), stdClass::class);
 })->throws(InvalidArgumentException::class);
+
+it('needs no configuration for an expectation the caller supplies', function (): void {
+    config(['flink.results.audience' => null, 'flink.prefill.journeys' => null]);
+
+    expect(Flink::verify($this->resultsJwt(), ResultsAssertion::class, ['aud' => TestCase::RP]))->toBeInstanceOf(ResultsAssertion::class)
+        ->and(Flink::verify($this->jwt([]), PrefillAssertion::class, ['journeys' => [TestCase::JOURNEY], 'reference' => TestCase::REF]))->toBeInstanceOf(PrefillAssertion::class);
+});

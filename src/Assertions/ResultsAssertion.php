@@ -32,7 +32,7 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
     public static function expectations(Container $app): array
     {
         return [
-            'aud' => $app->make('config')->get('flink.results.audience') ?: throw MissingConfiguration::for('FLINK_RESULTS_AUDIENCE'),
+            'aud' => fn (): mixed => $app->make('config')->get('flink.results.audience') ?: throw MissingConfiguration::for('FLINK_RESULTS_AUDIENCE'),
         ];
     }
 

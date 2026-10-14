@@ -35,13 +35,13 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
 
     public static function expectations(Container $app): array
     {
-        $config = $app->make('config')->get('flink.prefill');
+        $config = fn (string $key): mixed => $app->make('config')->get("flink.prefill.{$key}");
 
         return [
-            'aud' => ($config['audience'] ?? null) ?: self::origin((string) $app->make('config')->get('app.url')),
-            'journeys' => self::list($config['journeys'] ?? null) ?: throw MissingConfiguration::for('FLINK_JOURNEYS'),
-            'methods' => array_values($config['allowed_methods'] ?? []),
-            'reference' => $app->make(Flink::class)->currentReference(),
+            'aud' => fn (): string => $config('audience') ?: self::origin((string) $app->make('config')->get('app.url')),
+            'journeys' => fn (): array => self::list($config('journeys')) ?: throw MissingConfiguration::for('FLINK_JOURNEYS'),
+            'methods' => fn (): array => array_values((array) $config('allowed_methods')),
+            'reference' => fn (): ?string => $app->make(Flink::class)->currentReference(),
         ];
     }
 

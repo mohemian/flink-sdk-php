@@ -33,6 +33,9 @@ abstract class TestCase extends Orchestra
     /** @var list<list<string>> kids the JWKS endpoint serves, one list per fetch; then just k1 */
     public array $served = [];
 
+    /** @var list<mixed> raw JWKS response bodies, one per fetch, served before `$served` */
+    public array $bodies = [];
+
     protected function getPackageProviders($app): array
     {
         return [FlinkServiceProvider::class];
@@ -56,7 +59,7 @@ abstract class TestCase extends Orchestra
     protected function setUp(): void
     {
         parent::setUp();
-        Http::fake([self::JWKS => fn () => Http::response([
+        Http::fake([self::JWKS => fn () => $this->bodies !== [] ? Http::response(array_shift($this->bodies)) : Http::response([
             'keys' => array_map(fn (string $kid): array => self::key($kid)['jwk'], array_shift($this->served) ?? ['k1']),
         ])]);
     }
