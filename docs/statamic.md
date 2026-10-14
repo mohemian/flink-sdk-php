@@ -271,5 +271,6 @@ The logged reason says which check failed. The usual causes:
 | `Claim reference does not match`                 | The page is statically cached, or the session cookie did not reach the route   |
 | `Claim journey does not match`                   | The page's journey is not in `FLINK_JOURNEYS`                                  |
 | `Claim tenant_id does not match`                 | `FLINK_TENANT_ID` is another tenant's                                          |
+| `The assertion is not yet valid`                 | This server's clock is more than 5 seconds behind FLINK's: sync it (NTP)        |
 | `No FLINK reference in this session…`            | The session expired, or the page was rendered without `{{ flink:reference }}`   |
 | `The data does not come from an accepted method` | The journey ran a route other than eID that `prefill.allowed_methods` excludes, or has no identity step at all (email only) |

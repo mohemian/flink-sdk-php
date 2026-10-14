@@ -2,7 +2,7 @@
 
 namespace Mohemian\Flink\Exceptions;
 
-/** Signed by FLINK, but not the assertion you asked for, not for you, or no longer valid. */
+/** Signed by FLINK, but not the assertion you asked for, not for you, or not (or no longer) valid. */
 final class InvalidAssertion extends FlinkException
 {
     public static function wrongType(string $expected): self
@@ -24,6 +24,12 @@ final class InvalidAssertion extends FlinkException
     public static function expired(): self
     {
         return new self('The assertion has expired');
+    }
+
+    /** Issued later than this server's clock allows; not chained, for the same reason as expired(). */
+    public static function notYetValid(): self
+    {
+        return new self('The assertion is not yet valid');
     }
 
     public static function methodNotAccepted(): self

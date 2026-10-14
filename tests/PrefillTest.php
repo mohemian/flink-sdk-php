@@ -29,6 +29,7 @@ it('returns the verified assertion', function (): void {
         ->and($prefill->method)->toBe('eid')
         ->and($prefill->reference)->toBe(TestCase::REF)
         ->and($prefill->sessionId)->toBe(TestCase::SESSION)
+        ->and($prefill->id)->toBe('j1')
         ->and($prefill->expiresAt)->toEqual(CarbonImmutable::createFromTimestamp($exp));
 });
 
@@ -59,11 +60,13 @@ it('rejects a claim', function (array $claims, string $message): void {
     'missing method' => [['method' => null], 'not come from an accepted method'],
     'wrong reference' => [['reference' => 'gutmann:sess-other'], 'Claim reference does not match'],
     'missing reference' => [['reference' => null], 'Claim reference does not match'],
-    'expired' => [['exp' => time() - 1], 'expired'],
+    'expired' => [['exp' => time() - 60], 'expired'],
+    'not yet valid' => [['iat' => time() + 3600], 'not yet valid'],
     'no exp' => [['exp' => null], 'Claim exp is missing'],
     'wrong version' => [['ver' => 2], 'Claim ver does not match'],
     'no data' => [['data' => null], 'Claim data is missing'],
     'no session_id' => [['session_id' => null], 'Claim session_id is missing'],
+    'no jti' => [['jti' => null], 'Claim jti is missing'],
 ]);
 
 it('rejects what FLINK did not sign', function (array $header): void {
@@ -211,7 +214,7 @@ it('reports unreachable keys as unavailable, not as an invalid token', function 
 
 it('does not chain the expired payload into the exception', function (): void {
     try {
-        Flink::prefill($this->jwt(['exp' => time() - 1]), TestCase::REF);
+        Flink::prefill($this->jwt(['exp' => time() - 60]), TestCase::REF);
     } catch (InvalidAssertion $e) {
         expect($e->getPrevious())->toBeNull();
 
@@ -248,3 +251,54 @@ it('does not cache an unusable first key set', function (): void {
     expect(fn () => Flink::prefill($this->jwt([]), TestCase::REF))->toThrow(KeysUnavailable::class)
         ->and(Flink::prefill($this->jwt([]), TestCase::REF)->data)->toBe(['givenName' => 'Erika']);
 });
+
+it('tolerates a few seconds of clock skew between FLINK and this server', function (string $claim, int $offset): void {
+    // time() here, not in the dataset: Pest builds datasets when it loads the file.
+    expect(Flink::prefill($this->jwt([$claim => time() + $offset]), TestCase::REF)->data)->toBe(['givenName' => 'Erika']);
+})->with([
+    'issued a second ahead' => ['iat', 1],
+    'expired a second ago' => ['exp', -1],
+]);
+
+it('does not chain the not-yet-valid payload into the exception', function (): void {
+    try {
+        Flink::prefill($this->jwt(['iat' => time() + 3600]), TestCase::REF);
+    } catch (InvalidAssertion $e) {
+        expect($e->getPrevious())->toBeNull();
+
+        return;
+    }
+    $this->fail('not rejected');
+});
+
+it('leaves php-jwt\'s global leeway as the app set it', function (): void {
+    JWT::$leeway = 2;
+    try {
+        Flink::prefill($this->jwt([]), TestCase::REF);
+        rescue(fn () => Flink::prefill($this->jwt(['iat' => time() + 3600]), TestCase::REF), report: false);
+
+        expect(JWT::$leeway)->toBe(2);
+    } finally {
+        JWT::$leeway = 0;
+    }
+});
+
+it('compares the expected aud as a browser Origin', function (array $config, string $aud): void {
+    config($config);
+
+    expect(Flink::prefill($this->jwt(['aud' => $aud]), TestCase::REF)->data)->toBe(['givenName' => 'Erika']);
+})->with([
+    'APP_URL host in uppercase' => [['app.url' => 'https://www.Example.at/apply'], 'https://www.example.at'],
+    'APP_URL scheme in uppercase' => [['app.url' => 'HTTPS://example.at'], 'https://example.at'],
+    'APP_URL with :443' => [['app.url' => 'https://example.at:443'], 'https://example.at'],
+    'APP_URL with :80' => [['app.url' => 'http://example.at:80/'], 'http://example.at'],
+    'APP_URL with another port' => [['app.url' => 'https://example.at:8443'], 'https://example.at:8443'],
+    'FLINK_AUDIENCE with a trailing slash' => [['flink.prefill.audience' => 'https://www.example.at/'], 'https://www.example.at'],
+    'FLINK_AUDIENCE in uppercase with :443' => [['flink.prefill.audience' => 'https://www.Example.at:443'], 'https://www.example.at'],
+]);
+
+it('keeps a port that is not the default in the expected aud', function (): void {
+    config(['app.url' => 'https://example.at:8443']);
+
+    Flink::prefill($this->jwt(['aud' => 'https://example.at']), TestCase::REF);
+})->throws(InvalidAssertion::class, 'Claim aud does not match');

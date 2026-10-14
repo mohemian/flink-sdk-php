@@ -2,8 +2,10 @@
 
 namespace Mohemian\Flink\Verification;
 
+use Firebase\JWT\BeforeValidException;
 use Firebase\JWT\ExpiredException;
 use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 use Mohemian\Flink\Contracts\KeySet;
 use Mohemian\Flink\Exceptions\FlinkException;
 use Mohemian\Flink\Exceptions\InvalidAssertion;
@@ -17,6 +19,9 @@ use Mohemian\Flink\Exceptions\KeysUnavailable;
  */
 final readonly class Verifier
 {
+    /** Seconds of clock skew between FLINK and this server tolerated on `iat`, `nbf` and `exp`. */
+    public const LEEWAY = 5;
+
     public function __construct(
         private KeySet $keys,
         public string $issuer,
@@ -37,11 +42,13 @@ final readonly class Verifier
         }
 
         try {
-            $payload = JWT::decode($jwt, $this->keys->key($header['kid']));
+            $payload = $this->decode($jwt, $this->keys->key($header['kid']));
         } catch (FlinkException|KeysUnavailable $e) {
             throw $e;
         } catch (ExpiredException) {
             throw InvalidAssertion::expired();
+        } catch (BeforeValidException) {
+            throw InvalidAssertion::notYetValid();
         } catch (\Throwable $e) {
             throw InvalidSignature::failed($e);
         }
@@ -55,6 +62,21 @@ final readonly class Verifier
         }
 
         return $claims;
+    }
+
+    /**
+     * php-jwt takes its leeway only from a static the host app shares, so set it for this decode
+     * alone. The key is fetched before, so nothing in between can yield to other code.
+     */
+    private function decode(string $jwt, Key $key): \stdClass
+    {
+        $leeway = JWT::$leeway;
+        JWT::$leeway = self::LEEWAY;
+        try {
+            return JWT::decode($jwt, $key);
+        } finally {
+            JWT::$leeway = $leeway;
+        }
     }
 
     /** @return array{alg: 'RS256', kid: string, typ?: mixed} */

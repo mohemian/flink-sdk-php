@@ -53,7 +53,7 @@ try {
 
 $prefill->data;                    // ['givenName' => 'Erika', 'familyName' => 'Mustermann', 'address' => [...]]
 $prefill->get('address.street');   // 'Hauptstraße'
-$prefill->journey; $prefill->method; $prefill->sessionId; $prefill->expiresAt;
+$prefill->journey; $prefill->method; $prefill->sessionId; $prefill->id; $prefill->expiresAt;
 $prefill->changed($submitted);     // e.g. ['address.street']
 ```
 
@@ -71,7 +71,8 @@ $rule->assertion->data;
 - signed by FLINK: RS256 only, key chosen by `kid` from FLINK's JWKS (cached a day, refetched at most
   once a minute for an unknown `kid`), header `typ` = `flow-prefill+jwt`; otherwise
   `InvalidSignature`, or `InvalidAssertion` for another `typ`
-- `iss` = `FLINK_URL`, `aud` = your page's origin, not expired, `ver` = 1
+- `iss` = `FLINK_URL`, `aud` = your page's origin, not expired, `ver` = 1 (`iat` and `exp` allow
+  5 seconds of clock skew)
 - `tenant_id` is yours and `journey` is one of `FLINK_JOURNEYS`: any FLINK tenant can register your
   origin, so `aud` alone is not enough
 - `method` is one you accept (`prefill.allowed_methods`, default `['eid']`). `eid` is any eID
@@ -94,7 +95,9 @@ nothing more. Which changes you accept is your policy: [docs/statamic.md](docs/s
 names and birthdate and lets the address change.
 
 `Flink::reference()` issues this session's reference on first use (`@flinkReference` in Blade),
-`Flink::forgetReference()` rotates it, so one journey run backs one submission.
+`Flink::forgetReference()` rotates it, so one journey run backs one submission. `$prefill->id` is
+the JWT's `jti`: the same on every retry of one release, so to be sure of one submission per
+release regardless of the session, accept each `id` once.
 
 The JWT is personal data that stays verifiable after it expires: send it in a request body, verify
 it as soon as it arrives (it expires 5 minutes after the journey ends), and do not log or store it.

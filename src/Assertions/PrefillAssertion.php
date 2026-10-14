@@ -25,6 +25,8 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
         public readonly string $method,
         public readonly string $reference,
         public readonly string $sessionId,
+        /** The JWT's `jti`: one per release, the same on a retry, so accept each for one submission. */
+        public readonly string $id,
         public readonly CarbonImmutable $expiresAt,
     ) {}
 
@@ -38,7 +40,7 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
         $config = fn (string $key): mixed => $app->make('config')->get("flink.prefill.{$key}");
 
         return [
-            'aud' => fn (): string => $config('audience') ?: self::origin((string) $app->make('config')->get('app.url')),
+            'aud' => fn (): string => self::origin((string) ($config('audience') ?: $app->make('config')->get('app.url'))),
             'journeys' => fn (): array => self::list($config('journeys')) ?: throw MissingConfiguration::for('FLINK_JOURNEYS'),
             'methods' => fn (): array => array_values((array) $config('allowed_methods')),
             'reference' => fn (): ?string => $app->make(Flink::class)->currentReference(),
@@ -68,6 +70,7 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
             $claims['method'],
             $expected['reference'],
             self::stringClaim($claims, 'session_id'),
+            self::stringClaim($claims, 'jti'),
             // php-jwt checks `exp` only when present; FLINK always sets it, so its absence is a forgery.
             CarbonImmutable::createFromTimestamp(self::intClaim($claims, 'exp')),
         );
@@ -145,12 +148,17 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
         return array_values(array_filter(array_map(fn ($journey): string => trim((string) $journey), $list), fn (string $journey): bool => $journey !== ''));
     }
 
-    /** `https://example.com/apply` → `https://example.com`, the form the JWT's `aud` takes. */
+    /**
+     * `https://www.Example.com:443/apply` → `https://www.example.com`: the browser Origin, which is
+     * what FLINK puts in `aud`. Scheme and host lowercased, a default port and the path dropped.
+     */
     private static function origin(string $url): string
     {
-        $parts = parse_url($url);
-        $port = isset($parts['port']) ? ':'.$parts['port'] : '';
+        $parts = parse_url($url) ?: [];
+        $scheme = strtolower($parts['scheme'] ?? 'https');
+        $port = $parts['port'] ?? null;
+        $default = ['https' => 443, 'http' => 80][$scheme] ?? null;
 
-        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '').$port;
+        return $scheme.'://'.strtolower($parts['host'] ?? '').($port === null || $port === $default ? '' : ':'.$port);
     }
 }

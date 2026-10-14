@@ -15,6 +15,7 @@ return [
     // `flow-prefill+jwt`: the data an embedded journey prefilled, signed.
     'prefill' => [
         // The origin of the page that embeds the journey: the JWT's `aud`. Defaults to APP_URL's.
+        // Compared as a browser Origin: lowercased, without a path or a default port.
         'audience' => env('FLINK_AUDIENCE'),
 
         // The journeys whose prefill you accept: their public ids, comma-separated, as on the

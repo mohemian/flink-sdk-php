@@ -43,4 +43,4 @@ it('dispatches a rejection that serializes for a queued listener and carries no 
 
         return ! str_contains($serialized, 'Erika') && ! str_contains($serialized, TestCase::REF);
     });
-})->with(['mismatch' => [['aud' => 'x']], 'expired' => [['exp' => time() - 1]]]);
+})->with(['mismatch' => [['aud' => 'x']], 'expired' => [['exp' => time() - 60]], 'not yet valid' => [['iat' => time() + 3600]]]);
