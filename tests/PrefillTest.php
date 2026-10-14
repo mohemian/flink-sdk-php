@@ -240,7 +240,7 @@ it('keeps the cached keys when a refetch returns no key set', function (mixed $b
 
     expect(fn () => Flink::prefill($this->jwt([], ['kid' => 'k2']), TestCase::REF))->toThrow(KeysUnavailable::class)
         ->and(Flink::prefill($this->jwt([]), TestCase::REF)->data)->toBe(['givenName' => 'Erika']);
-})->with(['no keys' => [['foo' => 'bar']], 'keys not a list' => [['keys' => 'x']], 'empty keys' => [['keys' => []]]]);
+})->with(['no keys' => [['foo' => 'bar']], 'keys not a list' => [['keys' => 'x']], 'empty keys' => [['keys' => []]], 'only keyless entries' => [['keys' => [['kty' => 'RSA']]]], 'kid not a string' => [['keys' => [['kty' => 'RSA', 'kid' => 7]]]]]);
 
 it('does not cache an unusable first key set', function (): void {
     $this->bodies = [['keys' => []]]; // then the real key set

@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Http;
+use Mohemian\Flink\Assertions\PrefillAssertion;
+use Mohemian\Flink\Assertions\ResultsAssertion;
 use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Exceptions\InvalidSignature;
 use Mohemian\Flink\Facades\Flink;
@@ -41,3 +43,14 @@ it('no longer accepts tokens signed by the real keys once faked', function (): v
 
     Flink::prefill($real, TestCase::REF);
 })->throws(InvalidSignature::class, 'Unknown key id k1');
+
+it('needs no configuration for a claim the test supplies', function (): void {
+    config(['flink.prefill.journeys' => null, 'flink.results.audience' => null]);
+    $fake = Flink::fake();
+
+    $prefill = $fake->prefill(claims: ['journey' => 'J1']);
+    $results = $fake->results(claims: ['aud' => 'rp']);
+
+    expect(Flink::verify($prefill, PrefillAssertion::class, ['journeys' => ['J1']])->journey)->toBe('J1')
+        ->and(Flink::verify($results, ResultsAssertion::class, ['aud' => 'rp'])->sessionId)->toBeString();
+});

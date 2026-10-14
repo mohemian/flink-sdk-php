@@ -38,16 +38,14 @@ final readonly class FlinkFake
      */
     public function prefill(array $data = ['givenName' => 'Erika', 'familyName' => 'Mustermann'], array $claims = []): string
     {
-        $expected = PrefillAssertion::expected($this->app);
+        $default = PrefillAssertion::expectations($this->app);
 
-        return $this->sign(PrefillAssertion::type(), $claims + [
-            'aud' => $expected['aud'],
-            'exp' => time() + 300,
-            'journey' => $expected['journeys'][0],
-            'method' => $expected['methods'][0] ?? 'eid',
-            'reference' => $expected['reference'] ?? $this->app->make(Flink::class)->reference(),
-            'data' => $data,
-        ]);
+        return $this->sign(PrefillAssertion::type(), $claims + $this->defaults($claims, [
+            'aud' => $default['aud'],
+            'journey' => fn (): mixed => $default['journeys']()[0],
+            'method' => fn (): mixed => $default['methods']()[0] ?? 'eid',
+            'reference' => fn (): mixed => $default['reference']() ?? $this->app->make(Flink::class)->reference(),
+        ]) + ['exp' => time() + 300, 'data' => $data]);
     }
 
     /**
@@ -56,10 +54,27 @@ final readonly class FlinkFake
      */
     public function results(array $results = [], array $claims = []): string
     {
-        return $this->sign(ResultsAssertion::type(), $claims + [
-            'aud' => ResultsAssertion::expected($this->app)['aud'],
-            'results' => $results,
-        ]);
+        return $this->sign(ResultsAssertion::type(), $claims + $this->defaults($claims, [
+            'aud' => ResultsAssertion::expectations($this->app)['aud'],
+        ]) + ['results' => $results]);
+    }
+
+    /**
+     * Resolve a default only for a claim the test does not supply, so its configuration is not
+     * required then.
+     *
+     * @param  array<string, mixed>  $claims
+     * @param  array<string, \Closure(): mixed>  $defaults
+     * @return array<string, mixed>
+     */
+    private function defaults(array $claims, array $defaults): array
+    {
+        $resolved = [];
+        foreach (array_diff_key($defaults, $claims) as $claim => $default) {
+            $resolved[$claim] = $default();
+        }
+
+        return $resolved;
     }
 
     /** @param array<string, mixed> $claims */

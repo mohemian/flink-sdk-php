@@ -62,7 +62,8 @@ final readonly class JwksKeySet implements KeySet
             throw KeysUnavailable::from($this->url, $e);
         }
 
-        $keys = is_array($keys) ? array_column(array_filter($keys, is_array(...)), null, 'kid') : [];
+        // Only entries with a string kid: array_column() would index the others numerically.
+        $keys = is_array($keys) ? array_column(array_filter($keys, fn (mixed $key): bool => is_string($key['kid'] ?? null)), null, 'kid') : [];
         // A response without a usable key set is an outage, not a rotation: never cache it over
         // the keys that work.
         if ($keys === []) {
