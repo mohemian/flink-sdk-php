@@ -223,3 +223,13 @@ it('does not chain the expired payload into the exception', function () {
 it('refuses a null expectation instead of matching a missing claim', function () {
     Flink::verify($this->jwt(['aud' => null]), PrefillAssertion::class, ['aud' => null, 'reference' => TestCase::REF]);
 })->throws(InvalidAssertion::class, 'Claim aud does not match');
+
+it('refuses a non-string token as a FlinkException, not a TypeError', function (mixed $jwt) {
+    Flink::prefill($jwt, TestCase::REF);
+})->throws(InvalidSignature::class)->with(['array' => [['a']], 'int' => [1]]);
+
+it('treats an empty FLINK_AUDIENCE as unset', function () {
+    config(['flink.prefill.audience' => '']);
+
+    expect(Flink::prefill($this->jwt([]), TestCase::REF)->data)->toBe(['givenName' => 'Erika']);
+});

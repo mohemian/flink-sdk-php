@@ -7,9 +7,9 @@ use Mohemian\Flink\Contracts\KeySet;
 use Mohemian\Flink\Testing\FlinkFake;
 
 /**
- * @method static \Mohemian\Flink\Assertions\PrefillAssertion prefill(?string $jwt, ?string $reference = null)
- * @method static \Mohemian\Flink\Assertions\ResultsAssertion results(?string $jwt)
- * @method static \Mohemian\Flink\Assertions\Assertion verify(?string $jwt, string $type, array<string, mixed> $expected = [])
+ * @method static \Mohemian\Flink\Assertions\PrefillAssertion prefill(mixed $jwt, ?string $reference = null)
+ * @method static \Mohemian\Flink\Assertions\ResultsAssertion results(mixed $jwt)
+ * @method static \Mohemian\Flink\Assertions\Assertion verify(mixed $jwt, string $type, array<string, mixed> $expected = [])
  * @method static string reference()
  * @method static string|null currentReference()
  * @method static void forgetReference()
@@ -24,7 +24,7 @@ final class Flink extends Facade
      */
     public static function fake(): FlinkFake
     {
-        $app = static::getFacadeApplication() ?? throw new \RuntimeException('Flink::fake() needs a booted application');
+        $app = static::getFacadeApplication() ?? throw new \LogicException('Flink::fake() needs a booted application');
         $fake = new FlinkFake($app);
         $app->instance(KeySet::class, $fake->keys);
 

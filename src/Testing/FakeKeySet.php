@@ -26,5 +26,6 @@ final class FakeKeySet implements KeySet
 
     public function forget(): void
     {
+        // Nothing is cached: the fake's one key lives in memory for the test's lifetime.
     }
 }

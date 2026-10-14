@@ -46,7 +46,9 @@ use Mohemian\Flink\Facades\Flink;
 try {
     $prefill = Flink::prefill($request->input('prefill_jwt')); // checked against this session's reference
 } catch (FlinkException $e) {
-    // refused; $e->getMessage() says which check failed (log that, never the JWT)
+    logger()->warning('FLINK prefill refused', ['reason' => $e->getMessage()]); // never log the JWT
+
+    return response()->noContent(422);
 }
 
 $prefill->data;                    // ['givenName' => 'Erika', 'familyName' => 'Mustermann', 'address' => [...]]

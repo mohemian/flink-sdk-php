@@ -39,7 +39,7 @@ final class PrefillAssertion extends Assertion implements Arrayable, \JsonSerial
         $config = $app->make('config')->get('flink.prefill');
 
         return [
-            'aud' => $config['audience'] ?? self::origin((string) $app->make('config')->get('app.url')),
+            'aud' => ($config['audience'] ?? null) ?: self::origin((string) $app->make('config')->get('app.url')),
             'journeys' => self::list($config['journeys'] ?? null) ?: throw MissingConfiguration::for('FLINK_JOURNEYS'),
             'methods' => array_values($config['allowed_methods'] ?? []),
             'reference' => $app->make(Flink::class)->currentReference(),
@@ -126,7 +126,10 @@ final class PrefillAssertion extends Assertion implements Arrayable, \JsonSerial
         if ($value !== null && ! is_scalar($value)) {
             return null;
         }
-        $string = is_bool($value) ? ($value ? '1' : '0') : trim((string) $value);
+        if (is_bool($value)) {
+            $value = $value ? '1' : '0';
+        }
+        $string = trim((string) $value);
 
         return \Normalizer::normalize($string, \Normalizer::FORM_C) ?: $string;
     }

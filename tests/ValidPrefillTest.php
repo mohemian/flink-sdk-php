@@ -34,3 +34,13 @@ it('checks against the reference it is given', function () {
 
     expect($validator->passes())->toBeTrue();
 });
+
+it('forgets the previous assertion when reused', function () {
+    session(['flink.reference' => TestCase::REF]);
+    $rule = new ValidPrefill();
+
+    Validator::make(['p' => $this->jwt([])], ['p' => [$rule]])->passes();
+    Validator::make(['p' => 'x.y.z'], ['p' => [$rule]])->passes();
+
+    expect($rule->assertion)->toBeNull();
+});

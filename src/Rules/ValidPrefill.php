@@ -23,8 +23,9 @@ final class ValidPrefill implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
+        $this->assertion = null;
         try {
-            $this->assertion = app(Flink::class)->prefill(is_string($value) ? $value : null, $this->reference);
+            $this->assertion = app(Flink::class)->prefill($value, $this->reference);
         } catch (FlinkException) {
             $fail('The :attribute is not a valid FLINK prefill.');
         }

@@ -24,13 +24,14 @@ final class Flink
     }
 
     /**
-     * Verify a `flow-prefill+jwt`. `$reference` defaults to this session's, as issued by
+     * Verify a `flow-prefill+jwt`. `$jwt` may be anything a request carries: what is not a
+     * non-empty string is refused like a malformed token. `$reference` defaults to this session's, as issued by
      * `reference()` and passed to `createFlink({ reference })` on the page.
      *
      * @throws FlinkException
      * @throws MissingConfiguration
      */
-    public function prefill(?string $jwt, ?string $reference = null): PrefillAssertion
+    public function prefill(mixed $jwt, ?string $reference = null): PrefillAssertion
     {
         return $this->verify($jwt, PrefillAssertion::class, $reference === null ? [] : ['reference' => $reference]);
     }
@@ -41,7 +42,7 @@ final class Flink
      * @throws FlinkException
      * @throws MissingConfiguration
      */
-    public function results(?string $jwt): ResultsAssertion
+    public function results(mixed $jwt): ResultsAssertion
     {
         return $this->verify($jwt, ResultsAssertion::class);
     }
@@ -61,7 +62,7 @@ final class Flink
      * @throws MissingConfiguration
      * @throws KeysUnavailable
      */
-    public function verify(?string $jwt, string $type, array $expected = []): Assertion
+    public function verify(mixed $jwt, string $type, array $expected = []): Assertion
     {
         if (! is_subclass_of($type, Assertion::class)) {
             throw new \InvalidArgumentException("{$type} is not a FLINK assertion");
@@ -70,7 +71,7 @@ final class Flink
         $verifier = $this->app->make(Verifier::class);
 
         try {
-            $claims = $verifier->claims($jwt === null || $jwt === '' ? throw InvalidSignature::malformed() : $jwt, $type::type());
+            $claims = $verifier->claims(is_string($jwt) && $jwt !== '' ? $jwt : throw InvalidSignature::malformed(), $type::type());
             $assertion = $type::fromClaims($claims, $expected);
         } catch (FlinkException $e) {
             $this->dispatch(new AssertionRejected($type, $e->getMessage(), $e::class));
