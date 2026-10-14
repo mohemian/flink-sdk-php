@@ -1,43 +1,50 @@
 <?php
 
-namespace Mohemian\Flink;
+namespace Mohemian\Flink\Verification;
 
 use Firebase\JWT\JWK;
 use Firebase\JWT\Key;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Client\Factory as Http;
-use Mohemian\Flink\Exceptions\InvalidPrefill;
+use Mohemian\Flink\Contracts\KeySet;
+use Mohemian\Flink\Exceptions\InvalidSignature;
 
-/** FLINK's flow-results keys, cached for a day (the endpoint's max-age), refetched on an unknown kid. */
-final class Jwks
+/** FLINK's flow-results keys, cached for `$ttl` (the endpoint's max-age), refetched on an unknown kid. */
+final class JwksKeySet implements KeySet
 {
-    private const CACHE_KEY = 'flink:jwks';
-
     public function __construct(
         private readonly Http $http,
         private readonly Cache $cache,
         private readonly string $url,
+        private readonly string $cacheKey,
+        private readonly int $ttl,
     ) {
     }
 
     public function key(string $kid): Key
     {
-        $keys = $this->cache->remember(self::CACHE_KEY, 86400, fn () => $this->fetch());
+        $keys = $this->cache->remember($this->cacheKey, $this->ttl, fn () => $this->fetch());
         // An unknown kid is either a rotation or junk: refetch, but at most once a minute.
-        if (! isset($keys[$kid]) && $this->cache->add(self::CACHE_KEY.':refetch', true, 60)) {
+        if (! isset($keys[$kid]) && $this->cache->add($this->cacheKey.':refetch', true, 60)) {
             $keys = $this->fetch();
-            $this->cache->put(self::CACHE_KEY, $keys, 86400);
+            $this->cache->put($this->cacheKey, $keys, $this->ttl);
         }
         if (! isset($keys[$kid])) {
-            throw new InvalidPrefill("Unknown key id {$kid}");
+            throw InvalidSignature::unknownKey($kid);
         }
 
         $key = JWK::parseKey($keys[$kid]);
         if ($key === null || $key->getAlgorithm() !== 'RS256') {
-            throw new InvalidPrefill("Key {$kid} is not an RS256 key");
+            throw InvalidSignature::unsupportedKey($kid);
         }
 
         return $key;
+    }
+
+    public function forget(): void
+    {
+        $this->cache->forget($this->cacheKey);
+        $this->cache->forget($this->cacheKey.':refetch');
     }
 
     /** @return array<string, array<string, mixed>> the JWKs by kid */

@@ -1,6 +1,6 @@
 {
     "name": "mohemian/flink-sdk-php",
-    "description": "Verify FLINK results (eID prefill, such as ID Austria) in a Laravel backend.",
+    "description": "Verify FLINK's signed assertions (eID prefill, flow results) in a Laravel backend.",
     "type": "library",
     "license": "MIT",
     "keywords": [
@@ -17,6 +17,8 @@
         "firebase/php-jwt": "^7.0",
         "guzzlehttp/guzzle": "^7.2",
         "illuminate/cache": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/console": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
         "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
         "illuminate/support": "^10.0|^11.0|^12.0|^13.0"
     },
@@ -39,7 +41,10 @@
         "laravel": {
             "providers": [
                 "Mohemian\\Flink\\FlinkServiceProvider"
-            ]
+            ],
+            "aliases": {
+                "Flink": "Mohemian\\Flink\\Facades\\Flink"
+            }
         }
     },
     "scripts": {

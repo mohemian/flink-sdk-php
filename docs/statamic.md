@@ -37,7 +37,8 @@ FLINK_JOURNEYS=SCD7DDPK258G
 The package verifies against FLINK's published keys, which it fetches and caches. It accepts only
 data that came from an eID route (`eid`: ID Austria, SkIDentity or SK Authentigate; the JWT does not
 say which); to change that, publish the config
-(`php artisan vendor:publish --tag=flink-config`) and edit `allowed_methods`.
+(`php artisan flink:install`, which also lists any variable still unset) and edit
+`prefill.allowed_methods`.
 
 ## 2. A reference per visitor
 
@@ -55,7 +56,7 @@ php please make:tag Flink
 
 namespace App\Tags;
 
-use Illuminate\Support\Str;
+use Mohemian\Flink\Facades\Flink as FlinkSdk;
 use Statamic\Tags\Tags;
 
 class Flink extends Tags
@@ -63,7 +64,7 @@ class Flink extends Tags
     /** {{ flink:reference }}: one random reference per session, rotated after a submission. */
     public function reference(): string
     {
-        return session('flink.reference') ?? tap(Str::random(40), fn ($r) => session(['flink.reference' => $r]));
+        return FlinkSdk::reference();
     }
 }
 ```
@@ -78,25 +79,28 @@ class Flink extends Tags
 
 ```php
 use Illuminate\Http\Request;
-use Mohemian\Flink\Exceptions\InvalidPrefill;
-use Mohemian\Flink\PrefillVerifier;
+use Mohemian\Flink\Exceptions\FlinkException;
+use Mohemian\Flink\Facades\Flink;
 
-Route::post('/flink/prefill', function (Request $request, PrefillVerifier $flink) {
+Route::post('/flink/prefill', function (Request $request) {
     try {
-        $verified = $flink->verify((string) $request->input('prefill_jwt'), (string) session('flink.reference'));
-    } catch (InvalidPrefill $e) {
+        // Checked against this session's reference, the one the tag above issued.
+        $prefill = Flink::prefill($request->input('prefill_jwt'));
+    } catch (FlinkException $e) {
         logger()->warning('FLINK prefill refused', ['reason' => $e->getMessage()]); // never log the JWT
 
         return response()->noContent(422);
     }
-    session(['flink.verified' => $verified]);
+    session(['flink.prefill' => $prefill]);
 
     return response()->noContent();
 })->middleware('throttle:20,1');
 ```
 
 The route sits in the `web` group, so it has the session and Laravel's CSRF protection; the page
-sends the token below.
+sends the token below. The verified prefill is kept as an object, which needs Laravel's default
+`session.serialization` of `php`; under `json` it comes back as a plain array, and the listener
+below then treats the submission as not prefilled.
 
 ## 4. The form
 
@@ -163,7 +167,8 @@ namespace App\Listeners;
 
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
-use Mohemian\Flink\PrefillVerifier;
+use Mohemian\Flink\Assertions\PrefillAssertion;
+use Mohemian\Flink\Facades\Flink;
 use Statamic\Events\FormSubmitted;
 
 class VerifyFlinkPrefill
@@ -190,8 +195,8 @@ class VerifyFlinkPrefill
             return;
         }
 
-        $verified = session('flink.verified');
-        if (! is_array($verified)) {
+        $prefill = session('flink.prefill');
+        if (! $prefill instanceof PrefillAssertion) {
             $submission->set('identity_verified', false);
             $submission->set('address_verified', false);
 
@@ -203,8 +208,8 @@ class VerifyFlinkPrefill
         foreach ($fields as $handle => $field) {
             $submitted[$field] = $submission->get($handle);
         }
-        $released = Arr::dot($verified);
-        $changed = PrefillVerifier::diff($submitted, Arr::only($released, array_values($fields)));
+        $released = Arr::dot($prefill->data);
+        $changed = $prefill->changed($submitted, only: array_values($fields));
 
         $lockedChanged = array_intersect(self::LOCKED, $changed);
         if ($lockedChanged !== []) {
@@ -221,14 +226,17 @@ class VerifyFlinkPrefill
         );
 
         // One ID Austria run, one application: the next one in this session needs its own.
-        $submission->afterSave(fn () => session()->forget(['flink.reference', 'flink.verified']));
+        $submission->afterSave(function () {
+            Flink::forgetReference();
+            session()->forget('flink.prefill');
+        });
     }
 }
 ```
 
 The rotation runs on `afterSave`, which Statamic only calls when the form stores submissions
-(`store: true`, the default). If yours does not store them, clear the two session keys at the end of
-`handle()` instead.
+(`store: true`, the default). If yours does not store them, run those two lines at the end of `handle()`
+instead.
 
 Laravel 11 and later discover the listener by its type hint. On Laravel 10, register it in
 `App\Providers\EventServiceProvider::$listen`:
@@ -263,4 +271,5 @@ The logged reason says which check failed. The usual causes:
 | `Claim reference does not match`                 | The page is statically cached, or the session cookie did not reach the route   |
 | `Claim journey does not match`                   | The page's journey is not in `FLINK_JOURNEYS`                                  |
 | `Claim tenant_id does not match`                 | `FLINK_TENANT_ID` is another tenant's                                          |
-| `The data does not come from an accepted method` | The journey ran a route other than eID that `allowed_methods` excludes, or has no identity step at all (email only) |
+| `No FLINK reference in this session…`            | The session expired, or the page was rendered without `{{ flink:reference }}`   |
+| `The data does not come from an accepted method` | The journey ran a route other than eID that `prefill.allowed_methods` excludes, or has no identity step at all (email only) |

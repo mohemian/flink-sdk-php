@@ -1,9 +1,10 @@
 # flink-sdk-php
 
-Verify FLINK results in a Laravel backend. An embedded FLINK journey hands your page the applicant's
+Verify FLINK's signed assertions in a Laravel backend. An embedded FLINK journey hands your page the applicant's
 eID data (from ID Austria, for example) together with a copy signed by FLINK. This package verifies
 that signed copy, so your backend can check that the names and birthdate in a submitted form are the
-ones the eID returned.
+ones the eID returned. The same verifier checks FLINK's other signed assertions, such as a
+session's results.
 
 Using Statamic? Follow [docs/statamic.md](docs/statamic.md) end to end.
 
@@ -11,6 +12,7 @@ Using Statamic? Follow [docs/statamic.md](docs/statamic.md) end to end.
 
 ```bash
 composer require mohemian/flink-sdk-php
+php artisan flink:install   # publishes config/flink.php and lists what is still unset
 ```
 
 PHP 8.2+ (8.3+ for Laravel 13), Laravel 10 to 13, `ext-intl`.
@@ -20,49 +22,120 @@ FLINK_TENANT_ID=…   # the console's journey page, "Start & integrate"
 FLINK_JOURNEYS=…    # the journey's public id, same place; several comma-separated
 # FLINK_URL=https://flink-services.mohemian.rocks  (default)
 # FLINK_AUDIENCE=https://www.example.at            (default: APP_URL's origin)
+# FLINK_RESULTS_AUDIENCE=…                         (only to verify results assertions)
 ```
 
-## Use
+## Verify a prefill
 
-On the page, launch the journey with a `reference` your backend issued for this visitor's session,
-and post `prefillJwt` from `onResult` to your backend (see the
-[browser SDK docs](https://github.com/mohemian/flink-sdk-web/blob/main/docs/security.md#verifying-on-your-backend)).
+On the page, launch the journey with this session's reference and post `prefillJwt` from `onResult`
+to your backend (see the
+[browser SDK docs](https://github.com/mohemian/flink-sdk-web/blob/main/docs/security.md#verifying-on-your-backend)):
+
+```blade
+<script>
+  Flink.createFlink({ journey: 'SCD7DDPK258G', reference: '@flinkReference', onResult: … });
+</script>
+```
+
 On the backend:
 
 ```php
-use Mohemian\Flink\Exceptions\InvalidPrefill;
-use Mohemian\Flink\PrefillVerifier;
+use Mohemian\Flink\Exceptions\FlinkException;
+use Mohemian\Flink\Facades\Flink;
 
-// Cast both: a missing field or an expired session must fail as InvalidPrefill, not as a TypeError.
-$verified = app(PrefillVerifier::class)->verify((string) $request->input('prefill_jwt'), (string) session('flink.reference'));
-// ['givenName' => 'Erika', 'familyName' => 'Mustermann', 'birthdate' => '1964-08-12', 'address' => [...]]
+try {
+    $prefill = Flink::prefill($request->input('prefill_jwt')); // checked against this session's reference
+} catch (FlinkException $e) {
+    // refused; $e->getMessage() says which check failed (log that, never the JWT)
+}
 
-$changed = PrefillVerifier::diff($submittedValues, $verified); // e.g. ['address.street']
+$prefill->data;                    // ['givenName' => 'Erika', 'familyName' => 'Mustermann', 'address' => [...]]
+$prefill->get('address.street');   // 'Hauptstraße'
+$prefill->journey; $prefill->method; $prefill->sessionId; $prefill->expiresAt;
+$prefill->changed($submitted);     // e.g. ['address.street']
 ```
 
-`verify()` throws `InvalidPrefill` unless every one of these holds:
+Or as a validation rule, which keeps the verified prefill for you:
+
+```php
+use Mohemian\Flink\Rules\ValidPrefill;
+
+$request->validate(['prefill_jwt' => ['required', $rule = new ValidPrefill]]);
+$rule->assertion->data;
+```
+
+`Flink::prefill()` throws a `FlinkException` unless every one of these holds:
 
 - signed by FLINK: RS256 only, key chosen by `kid` from FLINK's JWKS (cached a day, refetched at most
-  once a minute for an unknown `kid`), header `typ` = `flow-prefill+jwt`
+  once a minute for an unknown `kid`), header `typ` = `flow-prefill+jwt`; otherwise
+  `InvalidSignature`, or `InvalidAssertion` for another `typ`
 - `iss` = `FLINK_URL`, `aud` = your page's origin, not expired, `ver` = 1
 - `tenant_id` is yours and `journey` is one of `FLINK_JOURNEYS`: any FLINK tenant can register your
   origin, so `aud` alone is not enough
-- `method` is one you accept (`allowed_methods`, default `['eid']`). `eid` is any eID provider route
-  (ID Austria, SkIDentity or SK Authentigate); the claim does not say which one
-- `reference` is the one you issued for this session, so a JWT copied from someone else's browser
-  fails
+- `method` is one you accept (`prefill.allowed_methods`, default `['eid']`). `eid` is any eID
+  provider route (ID Austria, SkIDentity or SK Authentigate); the claim does not say which one
+- `reference` is this session's (or the one you pass as the second argument), so a JWT copied from
+  someone else's browser fails
 
-A journey with no identity step (email only, say) issues a JWT without `method`, and `verify()`
-refuses it. That is deliberate: nothing in such a JWT is identity-backed, the email address included,
+Everything but the signature is an `InvalidAssertion`. A missing setting throws
+`MissingConfiguration` instead, which is deliberately not a `FlinkException`: a misconfigured app
+should fail loudly, not refuse every applicant quietly.
+
+A journey with no identity step (email only, say) issues a JWT without `method`, and the prefill is
+refused. That is deliberate: nothing in such a JWT is identity-backed, the email address included,
 so it cannot stand in for a verified identity.
 
-`diff()` returns the verified fields the submission changed or left out, as dotted keys. It compares
-strings after trimming and Unicode NFC normalisation, and nothing more. Which changes you accept is
-your policy: [docs/statamic.md](docs/statamic.md) locks names and birthdate and lets the address
-change.
+`changed()` returns the verified fields the submission changed or left out, as dotted keys; pass
+`only:` to compare a subset. It compares strings after trimming and Unicode NFC normalisation, and
+nothing more. Which changes you accept is your policy: [docs/statamic.md](docs/statamic.md) locks
+names and birthdate and lets the address change.
+
+`Flink::reference()` issues this session's reference on first use (`@flinkReference` in Blade),
+`Flink::forgetReference()` rotates it, so one journey run backs one submission.
 
 The JWT is personal data that stays verifiable after it expires: send it in a request body, verify
 it as soon as it arrives (it expires 5 minutes after the journey ends), and do not log or store it.
+
+## Verify any FLINK assertion
+
+Every assertion FLINK signs verifies the same way; the caller always names the type it expects, so
+one type is never accepted as another (a results assertion never expires, so accepting it as a
+prefill would make it replayable forever):
+
+```php
+use Mohemian\Flink\Assertions\PrefillAssertion;
+use Mohemian\Flink\Assertions\ResultsAssertion;
+
+$results = Flink::results($jwt);                         // flow-results+jwt, aud = FLINK_RESULTS_AUDIENCE
+$results->results; $results->get('identity.givenName');
+
+Flink::verify($jwt, ResultsAssertion::class);            // the same, for any Assertion subclass
+Flink::verify($jwt, PrefillAssertion::class, ['reference' => $reference]); // override an expectation
+```
+
+## Testing your app
+
+`Flink::fake()` verifies against a key generated for the test, and signs assertions your config
+accepts, so your tests never reach FLINK:
+
+```php
+$fake = Flink::fake();
+
+$jwt = $fake->prefill(['givenName' => 'Erika']);            // bound to this session's reference
+$this->post('/flink/prefill', ['prefill_jwt' => $jwt])->assertNoContent();
+
+$fake->prefill(claims: ['method' => 'doc']);                 // override or drop (null) a claim
+$fake->results(['identity' => ['givenName' => 'Erika']]);
+```
+
+## Operations
+
+- `php artisan flink:keys:clear` forgets the cached keys, so the next verification fetches them.
+- `php artisan about` shows the FLINK settings.
+- Set `flink.events` to dispatch `AssertionVerified` and `AssertionRejected` (with the reason, never
+  the JWT), for an audit log.
+- `flink.cache` picks the store, key and lifetime of the cached keys; `FLINK_JWKS_URL` overrides
+  where they come from.
 
 ## Develop
 

@@ -2,9 +2,13 @@
 
 namespace Mohemian\Flink;
 
-use Illuminate\Contracts\Cache\Repository as Cache;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\ServiceProvider;
+use Mohemian\Flink\Contracts\KeySet;
+use Mohemian\Flink\Exceptions\MissingConfiguration;
+use Mohemian\Flink\Verification\JwksKeySet;
+use Mohemian\Flink\Verification\Verifier;
 
 final class FlinkServiceProvider extends ServiceProvider
 {
@@ -12,43 +16,50 @@ final class FlinkServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/flink.php', 'flink');
 
-        $this->app->singleton(PrefillVerifier::class, function ($app) {
+        $this->app->singleton(KeySet::class, function ($app) {
             $config = $app['config']['flink'];
-            $url = rtrim((string) $config['url'], '/');
-            return new PrefillVerifier(
-                new Jwks($app->make(Http::class), $app->make(Cache::class), $url.'/client/v1/.well-known/flow-results-jwks.json'),
-                $url,
-                $config['audience'] ?? self::origin((string) $app['config']['app.url']),
-                (string) ($config['tenant_id'] ?? throw new \RuntimeException('Set FLINK_TENANT_ID')),
-                self::journeys($config['journeys'] ?? null) ?: throw new \RuntimeException('Set FLINK_JOURNEYS'),
-                array_values($config['allowed_methods']),
+
+            return new JwksKeySet(
+                $app->make(Http::class),
+                $app['cache']->store($config['cache']['store'] ?? null),
+                $config['jwks_url'] ?? self::url($config).'/client/v1/.well-known/flow-results-jwks.json',
+                (string) ($config['cache']['key'] ?? 'flink:jwks'),
+                (int) ($config['cache']['ttl'] ?? 86400),
             );
         });
+        // Not a singleton: it is cheap, and `Flink::fake()` swaps the KeySet it is built with.
+        $this->app->bind(Verifier::class, fn ($app) => new Verifier(
+            $app->make(KeySet::class),
+            self::url($app['config']['flink']),
+            (string) ($app['config']['flink.tenant_id'] ?: throw MissingConfiguration::for('FLINK_TENANT_ID')),
+        ));
+        $this->app->singleton(Flink::class, fn ($app) => new Flink($app));
     }
 
     public function boot(): void
     {
         $this->publishes([__DIR__.'/../config/flink.php' => config_path('flink.php')], 'flink-config');
+
+        $this->callAfterResolving('blade.compiler', function ($blade) {
+            $blade->directive('flinkReference', fn () => '<?php echo e(app(\\'.Flink::class.'::class)->reference()); ?>');
+        });
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([Commands\InstallCommand::class, Commands\ClearKeysCommand::class]);
+            if (class_exists(AboutCommand::class)) {
+                AboutCommand::add('FLINK', fn () => [
+                    'URL' => config('flink.url'),
+                    'Tenant' => config('flink.tenant_id') ?: '<fg=yellow;options=bold>NOT SET</>',
+                    'Journeys' => (string) (is_array($journeys = config('flink.prefill.journeys')) ? implode(',', $journeys) : $journeys),
+                    'Events' => config('flink.events') ? 'ENABLED' : 'OFF',
+                ]);
+            }
+        }
     }
 
-    /**
-     * `FLINK_JOURNEYS` is a comma-separated string; a published config may hold an array instead.
-     *
-     * @return list<string>
-     */
-    private static function journeys(mixed $journeys): array
+    /** @param array<string, mixed> $config */
+    private static function url(array $config): string
     {
-        $list = is_array($journeys) ? $journeys : explode(',', (string) $journeys);
-
-        return array_values(array_filter(array_map(fn ($journey) => trim((string) $journey), $list), fn ($journey) => $journey !== ''));
-    }
-
-    /** `https://example.com/apply` → `https://example.com`, the form the JWT's `aud` takes. */
-    private static function origin(string $url): string
-    {
-        $parts = parse_url($url);
-        $port = isset($parts['port']) ? ':'.$parts['port'] : '';
-
-        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '').$port;
+        return rtrim((string) $config['url'], '/');
     }
 }
