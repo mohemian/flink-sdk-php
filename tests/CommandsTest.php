@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Http;
 use Mohemian\Flink\Facades\Flink;
 use Mohemian\Flink\Tests\TestCase;
 
-it('clears the cached keys so the next verification refetches them', function () {
+it('clears the cached keys so the next verification refetches them', function (): void {
     Flink::prefill($this->jwt([]), TestCase::REF);
     Flink::prefill($this->jwt([]), TestCase::REF);
     Http::assertSentCount(1);
@@ -15,7 +15,7 @@ it('clears the cached keys so the next verification refetches them', function ()
     Http::assertSentCount(2);
 });
 
-it('publishes the config and names the variables still missing', function () {
+it('publishes the config and names the variables still missing', function (): void {
     $published = config_path('flink.php');
     @unlink($published);
     config(['flink.tenant_id' => null]);

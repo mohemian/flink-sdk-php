@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Mohemian\Flink\Contracts;
 
 use Firebase\JWT\Key;

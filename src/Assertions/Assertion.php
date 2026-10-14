@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Mohemian\Flink\Assertions;
 
 use Illuminate\Contracts\Container\Container;

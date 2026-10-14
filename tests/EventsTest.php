@@ -8,7 +8,7 @@ use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Facades\Flink;
 use Mohemian\Flink\Tests\TestCase;
 
-it('dispatches nothing unless events are enabled', function () {
+it('dispatches nothing unless events are enabled', function (): void {
     Event::fake([AssertionVerified::class, AssertionRejected::class]);
 
     Flink::prefill($this->jwt([]), TestCase::REF);
@@ -18,7 +18,7 @@ it('dispatches nothing unless events are enabled', function () {
     Event::assertNotDispatched(AssertionRejected::class);
 });
 
-it('dispatches verified and rejected events when enabled', function () {
+it('dispatches verified and rejected events when enabled', function (): void {
     config(['flink.events' => true]);
     Event::fake([AssertionVerified::class, AssertionRejected::class]);
     $jwt = $this->jwt(['aud' => 'x']);
@@ -26,19 +26,19 @@ it('dispatches verified and rejected events when enabled', function () {
     $prefill = Flink::prefill($this->jwt([]), TestCase::REF);
     rescue(fn () => Flink::prefill($jwt, TestCase::REF), report: false);
 
-    Event::assertDispatched(AssertionVerified::class, fn ($e) => $e->assertion === $prefill);
-    Event::assertDispatched(AssertionRejected::class, fn ($e) => $e->type === PrefillAssertion::class
+    Event::assertDispatched(AssertionVerified::class, fn ($e): bool => $e->assertion === $prefill);
+    Event::assertDispatched(AssertionRejected::class, fn ($e): bool => $e->type === PrefillAssertion::class
         && $e->exception === InvalidAssertion::class
         && $e->reason === 'Claim aud does not match');
 });
 
-it('dispatches a rejection that serializes for a queued listener and carries no claims', function (array $claims) {
+it('dispatches a rejection that serializes for a queued listener and carries no claims', function (array $claims): void {
     config(['flink.events' => true]);
     Event::fake([AssertionRejected::class]);
 
     rescue(fn () => Flink::prefill($this->jwt($claims), TestCase::REF), report: false);
 
-    Event::assertDispatched(AssertionRejected::class, function ($e) {
+    Event::assertDispatched(AssertionRejected::class, function ($e): bool {
         $serialized = serialize($e);
 
         return ! str_contains($serialized, 'Erika') && ! str_contains($serialized, TestCase::REF);

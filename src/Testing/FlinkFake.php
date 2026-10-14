@@ -14,15 +14,15 @@ use Mohemian\Flink\Verification\Verifier;
  * Signs assertions the app under test accepts, from `Flink::fake()`. Every claim defaults to what
  * the app's config expects; pass `$claims` to override one, or `null` to drop it.
  */
-final class FlinkFake
+final readonly class FlinkFake
 {
     private const KID = 'flink-fake';
 
-    public readonly FakeKeySet $keys;
+    public FakeKeySet $keys;
 
-    private readonly string $privateKey;
+    private string $privateKey;
 
-    public function __construct(private readonly Container $app)
+    public function __construct(private Container $app)
     {
         $pair = KeyPair::generate(self::KID);
         $this->privateKey = $pair['private'];
@@ -75,6 +75,6 @@ final class FlinkFake
             'session_id' => (string) Str::uuid(),
         ];
 
-        return JWT::encode(array_filter($claims, fn ($v) => $v !== null), $this->privateKey, 'RS256', self::KID, ['typ' => $type]);
+        return JWT::encode(array_filter($claims, fn ($v): bool => $v !== null), $this->privateKey, 'RS256', self::KID, ['typ' => $type]);
     }
 }

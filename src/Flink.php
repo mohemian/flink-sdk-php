@@ -17,11 +17,9 @@ use Mohemian\Flink\Exceptions\MissingConfiguration;
 use Mohemian\Flink\Verification\Verifier;
 
 /** Verifies FLINK's signed assertions, and keeps the per-session reference a prefill is bound to. */
-final class Flink
+final readonly class Flink
 {
-    public function __construct(private readonly Container $app)
-    {
-    }
+    public function __construct(private Container $app) {}
 
     /**
      * Verify a `flow-prefill+jwt`. `$jwt` may be anything a request carries: what is not a
@@ -67,7 +65,7 @@ final class Flink
         if (! is_subclass_of($type, Assertion::class)) {
             throw new \InvalidArgumentException("{$type} is not a FLINK assertion");
         }
-        $expected = $expected + $type::expectations($this->app);
+        $expected += $type::expectations($this->app);
         $verifier = $this->app->make(Verifier::class);
 
         try {

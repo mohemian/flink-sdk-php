@@ -16,7 +16,7 @@ use Mohemian\Flink\Flink;
  *
  * @implements Arrayable<string, mixed>
  */
-final class PrefillAssertion extends Assertion implements Arrayable, \JsonSerializable
+final class PrefillAssertion extends Assertion implements \JsonSerializable, Arrayable
 {
     /** @param array<string, mixed> $data */
     public function __construct(
@@ -26,8 +26,7 @@ final class PrefillAssertion extends Assertion implements Arrayable, \JsonSerial
         public readonly string $reference,
         public readonly string $sessionId,
         public readonly CarbonImmutable $expiresAt,
-    ) {
-    }
+    ) {}
 
     public static function type(): string
     {
@@ -99,8 +98,8 @@ final class PrefillAssertion extends Assertion implements Arrayable, \JsonSerial
         $submitted = Arr::dot($submitted);
         $changed = [];
         foreach ($verified as $field => $value) {
-            $theirs = array_key_exists($field, $submitted) ? self::normalise($submitted[$field]) : null;
-            if ($theirs === null || $theirs !== self::normalise($value)) {
+            $theirs = array_key_exists($field, $submitted) ? $this->normalise($submitted[$field]) : null;
+            if ($theirs === null || $theirs !== $this->normalise($value)) {
                 $changed[] = (string) $field;
             }
         }
@@ -121,7 +120,7 @@ final class PrefillAssertion extends Assertion implements Arrayable, \JsonSerial
     }
 
     /** `null` for what is not a scalar (a client can post `field[]=`), which never matches. */
-    private static function normalise(mixed $value): ?string
+    private function normalise(mixed $value): ?string
     {
         if ($value !== null && ! is_scalar($value)) {
             return null;
@@ -143,7 +142,7 @@ final class PrefillAssertion extends Assertion implements Arrayable, \JsonSerial
     {
         $list = is_array($journeys) ? $journeys : explode(',', (string) $journeys);
 
-        return array_values(array_filter(array_map(fn ($journey) => trim((string) $journey), $list), fn ($journey) => $journey !== ''));
+        return array_values(array_filter(array_map(fn ($journey): string => trim((string) $journey), $list), fn (string $journey): bool => $journey !== ''));
     }
 
     /** `https://example.com/apply` → `https://example.com`, the form the JWT's `aud` takes. */

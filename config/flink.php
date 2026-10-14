@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
     // Base URL of flink-services. It is the `iss` of every assertion, and the JWKS is served under it.
     'url' => env('FLINK_URL', 'https://flink-services.mohemian.rocks'),

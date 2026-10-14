@@ -12,7 +12,7 @@ final class KeyPair
         if ($key === false || ! openssl_pkey_export($key, $private) || ($details = openssl_pkey_get_details($key)) === false) {
             throw new \RuntimeException('Could not generate an RSA key: '.openssl_error_string());
         }
-        $b64 = fn (string $bin) => rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
+        $b64 = fn (string $bin): string => rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
 
         return [
             'private' => $private,

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Mohemian\Flink\Verification;
 
 use Firebase\JWT\JWK;
@@ -11,20 +13,19 @@ use Mohemian\Flink\Exceptions\InvalidSignature;
 use Mohemian\Flink\Exceptions\KeysUnavailable;
 
 /** FLINK's flow-results keys, cached for `$ttl` (the endpoint's max-age), refetched on an unknown kid. */
-final class JwksKeySet implements KeySet
+final readonly class JwksKeySet implements KeySet
 {
     public function __construct(
-        private readonly Http $http,
-        private readonly Cache $cache,
-        private readonly string $url,
-        private readonly string $cacheKey,
-        private readonly int $ttl,
-    ) {
-    }
+        private Http $http,
+        private Cache $cache,
+        private string $url,
+        private string $cacheKey,
+        private int $ttl,
+    ) {}
 
     public function key(string $kid): Key
     {
-        $keys = $this->cache->remember($this->cacheKey, $this->ttl, fn () => $this->fetch());
+        $keys = $this->cache->remember($this->cacheKey, $this->ttl, fn (): array => $this->fetch());
         // An unknown kid is either a rotation or junk: refetch, but at most once a minute.
         if (! isset($keys[$kid]) && $this->cache->add($this->cacheKey.':refetch', true, 60)) {
             $keys = $this->fetch();
@@ -35,7 +36,7 @@ final class JwksKeySet implements KeySet
         }
 
         $key = JWK::parseKey($keys[$kid]);
-        if ($key === null || $key->getAlgorithm() !== 'RS256') {
+        if (! $key instanceof Key || $key->getAlgorithm() !== 'RS256') {
             throw InvalidSignature::unsupportedKey($kid);
         }
 

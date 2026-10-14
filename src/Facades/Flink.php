@@ -24,7 +24,7 @@ final class Flink extends Facade
      */
     public static function fake(): FlinkFake
     {
-        $app = static::getFacadeApplication() ?? throw new \LogicException('Flink::fake() needs a booted application');
+        $app = self::getFacadeApplication() ?? throw new \LogicException('Flink::fake() needs a booted application');
         $fake = new FlinkFake($app);
         $app->instance(KeySet::class, $fake->keys);
 

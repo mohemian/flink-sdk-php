@@ -4,6 +4,7 @@ namespace Mohemian\Flink\Tests;
 
 use Firebase\JWT\JWT;
 use Illuminate\Support\Facades\Http;
+use Mohemian\Flink\Facades\Flink;
 use Mohemian\Flink\FlinkServiceProvider;
 use Mohemian\Flink\Testing\KeyPair;
 use Orchestra\Testbench\TestCase as Orchestra;
@@ -11,12 +12,19 @@ use Orchestra\Testbench\TestCase as Orchestra;
 abstract class TestCase extends Orchestra
 {
     public const URL = 'https://flink.test';
+
     public const JWKS = self::URL.'/client/v1/.well-known/flow-results-jwks.json';
+
     public const ORIGIN = 'https://rp.test';
+
     public const RP = 'rp-backend';
+
     public const TENANT = '1ed9dfea-a7f6-401e-a93d-ebb4ee1ebd57';
+
     public const SESSION = '7d5c3a8e-0000-4000-8000-000000000001';
+
     public const JOURNEY = 'SCD7DDPK258G';
+
     public const REF = 'gutmann:sess-4711';
 
     /** @var array<string, array{private: string, jwk: array<string, string>}> */
@@ -32,7 +40,7 @@ abstract class TestCase extends Orchestra
 
     protected function getPackageAliases($app): array
     {
-        return ['Flink' => \Mohemian\Flink\Facades\Flink::class];
+        return ['Flink' => Flink::class];
     }
 
     protected function defineEnvironment($app): void
@@ -49,7 +57,7 @@ abstract class TestCase extends Orchestra
     {
         parent::setUp();
         Http::fake([self::JWKS => fn () => Http::response([
-            'keys' => array_map(fn ($kid) => self::key($kid)['jwk'], array_shift($this->served) ?? ['k1']),
+            'keys' => array_map(fn (string $kid): array => self::key($kid)['jwk'], array_shift($this->served) ?? ['k1']),
         ])]);
     }
 
@@ -75,7 +83,7 @@ abstract class TestCase extends Orchestra
             'nonce' => 'state',
         ], $overrides);
 
-        return array_filter($claims, fn ($v) => $v !== null);
+        return array_filter($claims, fn ($v): bool => $v !== null);
     }
 
     /**
@@ -111,7 +119,7 @@ abstract class TestCase extends Orchestra
             'tenant_id' => self::TENANT,
             'session_id' => self::SESSION,
             'results' => ['identity' => ['givenName' => 'Erika']],
-        ], $claims), fn ($v) => $v !== null);
+        ], $claims), fn ($v): bool => $v !== null);
 
         return JWT::encode($claims, self::key('k1')['private'], 'RS256', 'k1', ['typ' => $typ]);
     }

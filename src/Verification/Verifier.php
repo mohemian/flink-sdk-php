@@ -15,14 +15,13 @@ use Mohemian\Flink\Exceptions\KeysUnavailable;
  * the `typ` the caller expects, so one assertion type is never accepted as another; FLINK as `iss`;
  * your tenant. Everything type-specific is the assertion class's to check.
  */
-final class Verifier
+final readonly class Verifier
 {
     public function __construct(
-        private readonly KeySet $keys,
-        public readonly string $issuer,
-        public readonly string $tenantId,
-    ) {
-    }
+        private KeySet $keys,
+        public string $issuer,
+        public string $tenantId,
+    ) {}
 
     /**
      * @return array<string, mixed> the verified claims

@@ -1,3 +1,6 @@
 <?php
 
-uses(Mohemian\Flink\Tests\TestCase::class)->in(__DIR__);
+declare(strict_types=1);
+use Mohemian\Flink\Tests\TestCase;
+
+uses(TestCase::class)->in(__DIR__);

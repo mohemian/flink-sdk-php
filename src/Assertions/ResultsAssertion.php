@@ -14,7 +14,7 @@ use Mohemian\Flink\Exceptions\MissingConfiguration;
  *
  * @implements Arrayable<string, mixed>
  */
-final class ResultsAssertion extends Assertion implements Arrayable, \JsonSerializable
+final class ResultsAssertion extends Assertion implements \JsonSerializable, Arrayable
 {
     /** @param array<string, mixed> $results */
     public function __construct(
@@ -22,8 +22,7 @@ final class ResultsAssertion extends Assertion implements Arrayable, \JsonSerial
         public readonly string $sessionId,
         public readonly string $id,
         public readonly CarbonImmutable $issuedAt,
-    ) {
-    }
+    ) {}
 
     public static function type(): string
     {

@@ -17,9 +17,7 @@ final class ValidPrefill implements ValidationRule
     public ?PrefillAssertion $assertion = null;
 
     /** @param string|null $reference defaults to this session's */
-    public function __construct(private readonly ?string $reference = null)
-    {
-    }
+    public function __construct(private readonly ?string $reference = null) {}
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
