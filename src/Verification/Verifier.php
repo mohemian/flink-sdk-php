@@ -43,13 +43,12 @@ final readonly class Verifier
 
         try {
             $payload = $this->decode($jwt, $this->keys->key($header['kid']));
-        } catch (FlinkException|KeysUnavailable $e) {
-            throw $e;
         } catch (ExpiredException) {
             throw InvalidAssertion::expired();
         } catch (BeforeValidException) {
             throw InvalidAssertion::notYetValid();
-        } catch (\Throwable $e) {
+        } catch (\UnexpectedValueException|\DomainException $e) {
+            // php-jwt's own failures only: anything else, a cache outage say, is not a forgery.
             throw InvalidSignature::failed($e);
         }
 

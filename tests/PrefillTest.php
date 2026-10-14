@@ -4,8 +4,11 @@ use Carbon\CarbonImmutable;
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Illuminate\Contracts\Cache\Repository;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Http;
 use Mohemian\Flink\Assertions\PrefillAssertion;
+use Mohemian\Flink\Contracts\KeySet;
 use Mohemian\Flink\Exceptions\FlinkException;
 use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Exceptions\InvalidSignature;
@@ -13,6 +16,7 @@ use Mohemian\Flink\Exceptions\KeysUnavailable;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
 use Mohemian\Flink\Facades\Flink;
 use Mohemian\Flink\Tests\TestCase;
+use Mohemian\Flink\Verification\JwksKeySet;
 
 it('returns the verified assertion', function (): void {
     $data = ['givenName' => 'Erika', 'familyName' => 'Mustermann', 'address' => ['street' => 'Hauptstraße']];
@@ -302,3 +306,41 @@ it('keeps a port that is not the default in the expected aud', function (): void
 
     Flink::prefill($this->jwt(['aud' => 'https://example.at']), TestCase::REF);
 })->throws(InvalidAssertion::class, 'Claim aud does not match');
+
+it('allows exactly 5 seconds of clock skew', function (string $claim, int $offset, ?string $refused): void {
+    JWT::$timestamp = $now = time(); // fixed, so a second boundary cannot move the edge
+    try {
+        $verify = fn () => Flink::prefill($this->jwt([$claim => $now + $offset]), TestCase::REF);
+        $refused === null
+            ? expect($verify()->data)->toBe(['givenName' => 'Erika'])
+            : expect($verify)->toThrow(InvalidAssertion::class, $refused);
+    } finally {
+        JWT::$timestamp = null;
+    }
+})->with([
+    'issued 5s ahead' => ['iat', 5, null],
+    'issued 6s ahead' => ['iat', 6, 'not yet valid'],
+    'expired 4s ago' => ['exp', -4, null],
+    'expired 5s ago' => ['exp', -5, 'expired'],
+]);
+
+it('lets a cache outage through instead of calling the token forged', function (): void {
+    $cache = Mockery::mock(Repository::class);
+    $cache->shouldReceive('remember')->andThrow(new RuntimeException('Connection refused [tcp://redis:6379]'));
+    $this->app->instance(KeySet::class, new JwksKeySet(app(HttpFactory::class), $cache, TestCase::JWKS, 'flink:jwks', 60));
+
+    try {
+        Flink::prefill($this->jwt([]), TestCase::REF);
+    } catch (Throwable $e) {
+        expect($e::class)->toBe(RuntimeException::class);
+
+        return;
+    }
+    $this->fail('not thrown');
+});
+
+it('rejects a payload that is not JSON as a forgery', function (): void {
+    [$header, , $signature] = explode('.', $this->jwt([]));
+
+    Flink::prefill($header.'.'.JWT::urlsafeB64Encode('{').'.'.$signature, TestCase::REF);
+})->throws(InvalidSignature::class);
