@@ -8,6 +8,7 @@ use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Client\Factory as Http;
 use Mohemian\Flink\Contracts\KeySet;
 use Mohemian\Flink\Exceptions\InvalidSignature;
+use Mohemian\Flink\Exceptions\KeysUnavailable;
 
 /** FLINK's flow-results keys, cached for `$ttl` (the endpoint's max-age), refetched on an unknown kid. */
 final class JwksKeySet implements KeySet
@@ -47,10 +48,18 @@ final class JwksKeySet implements KeySet
         $this->cache->forget($this->cacheKey.':refetch');
     }
 
-    /** @return array<string, array<string, mixed>> the JWKs by kid */
+    /**
+     * @return array<string, array<string, mixed>> the JWKs by kid
+     *
+     * @throws KeysUnavailable
+     */
     private function fetch(): array
     {
-        $keys = $this->http->timeout(5)->get($this->url)->throw()->json('keys');
+        try {
+            $keys = $this->http->timeout(5)->get($this->url)->throw()->json('keys');
+        } catch (\Throwable $e) {
+            throw KeysUnavailable::from($this->url, $e);
+        }
 
         return array_column(is_array($keys) ? $keys : [], null, 'kid');
     }

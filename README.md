@@ -77,9 +77,10 @@ $rule->assertion->data;
 - `reference` is this session's (or the one you pass as the second argument), so a JWT copied from
   someone else's browser fails
 
-Everything but the signature is an `InvalidAssertion`. A missing setting throws
-`MissingConfiguration` instead, which is deliberately not a `FlinkException`: a misconfigured app
-should fail loudly, not refuse every applicant quietly.
+Everything but the signature is an `InvalidAssertion`. Two failures are deliberately not a
+`FlinkException`, because a broken setup should fail loudly rather than refuse every applicant
+quietly: `MissingConfiguration` for an unset variable, and `KeysUnavailable` when FLINK's keys cannot
+be fetched (a wrong `FLINK_URL`, or an outage).
 
 A journey with no identity step (email only, say) issues a JWT without `method`, and the prefill is
 refused. That is deliberate: nothing in such a JWT is identity-backed, the email address included,
@@ -132,8 +133,9 @@ $fake->results(['identity' => ['givenName' => 'Erika']]);
 
 - `php artisan flink:keys:clear` forgets the cached keys, so the next verification fetches them.
 - `php artisan about` shows the FLINK settings.
-- Set `flink.events` to dispatch `AssertionVerified` and `AssertionRejected` (with the reason, never
-  the JWT), for an audit log.
+- Set `flink.events` to dispatch `AssertionVerified` and `AssertionRejected` for an audit log. The
+  rejection carries the expected type, the reason and the exception class as strings, never the JWT
+  or its claims, so a queued listener can take it.
 - `flink.cache` picks the store, key and lifetime of the cached keys; `FLINK_JWKS_URL` overrides
   where they come from.
 

@@ -9,6 +9,7 @@ use Mohemian\Flink\Assertions\PrefillAssertion;
 use Mohemian\Flink\Exceptions\FlinkException;
 use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Exceptions\InvalidSignature;
+use Mohemian\Flink\Exceptions\KeysUnavailable;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
 use Mohemian\Flink\Facades\Flink;
 use Mohemian\Flink\Tests\TestCase;
@@ -199,3 +200,26 @@ it('compares only the fields asked for', function () {
 
     expect($prefill->changed(['givenName' => 'Erika'], only: ['givenName', 'birthdate']))->toBe([]);
 });
+
+it('reports unreachable keys as unavailable, not as an invalid token', function () {
+    config(['flink.jwks_url' => 'https://keys.test/jwks.json']);
+    Http::fake(['https://keys.test/jwks.json' => Http::response('', 500)]);
+
+    expect(fn () => Flink::prefill($this->jwt([]), TestCase::REF))->toThrow(KeysUnavailable::class)
+        ->and(new KeysUnavailable('x'))->not->toBeInstanceOf(FlinkException::class);
+});
+
+it('does not chain the expired payload into the exception', function () {
+    try {
+        Flink::prefill($this->jwt(['exp' => time() - 1]), TestCase::REF);
+    } catch (InvalidAssertion $e) {
+        expect($e->getPrevious())->toBeNull();
+
+        return;
+    }
+    $this->fail('not rejected');
+});
+
+it('refuses a null expectation instead of matching a missing claim', function () {
+    Flink::verify($this->jwt(['aud' => null]), PrefillAssertion::class, ['aud' => null, 'reference' => TestCase::REF]);
+})->throws(InvalidAssertion::class, 'Claim aud does not match');

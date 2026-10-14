@@ -12,6 +12,7 @@ use Mohemian\Flink\Events\AssertionRejected;
 use Mohemian\Flink\Events\AssertionVerified;
 use Mohemian\Flink\Exceptions\FlinkException;
 use Mohemian\Flink\Exceptions\InvalidSignature;
+use Mohemian\Flink\Exceptions\KeysUnavailable;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
 use Mohemian\Flink\Verification\Verifier;
 
@@ -58,6 +59,7 @@ final class Flink
      *
      * @throws FlinkException
      * @throws MissingConfiguration
+     * @throws KeysUnavailable
      */
     public function verify(?string $jwt, string $type, array $expected = []): Assertion
     {
@@ -71,7 +73,7 @@ final class Flink
             $claims = $verifier->claims($jwt === null || $jwt === '' ? throw InvalidSignature::malformed() : $jwt, $type::type());
             $assertion = $type::fromClaims($claims, $expected);
         } catch (FlinkException $e) {
-            $this->dispatch(new AssertionRejected($type, $e));
+            $this->dispatch(new AssertionRejected($type, $e->getMessage(), $e::class));
             throw $e;
         }
         $this->dispatch(new AssertionVerified($assertion));

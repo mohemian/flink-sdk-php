@@ -36,7 +36,7 @@ abstract class Assertion
     /** @param array<string, mixed> $claims */
     protected static function expect(array $claims, string $claim, mixed $value): void
     {
-        if (($claims[$claim] ?? null) !== $value) {
+        if ($value === null || ($claims[$claim] ?? null) !== $value) {
             throw InvalidAssertion::mismatch($claim);
         }
     }

@@ -20,9 +20,10 @@ final class InvalidAssertion extends FlinkException
         return new self("Claim {$claim} is missing");
     }
 
-    public static function expired(\Throwable $previous): self
+    /** Not chained to php-jwt's ExpiredException: that carries the decoded claims, personal data included. */
+    public static function expired(): self
     {
-        return new self('The assertion has expired', previous: $previous);
+        return new self('The assertion has expired');
     }
 
     public static function methodNotAccepted(): self

@@ -8,6 +8,7 @@ use Mohemian\Flink\Contracts\KeySet;
 use Mohemian\Flink\Exceptions\FlinkException;
 use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Exceptions\InvalidSignature;
+use Mohemian\Flink\Exceptions\KeysUnavailable;
 
 /**
  * What every FLINK assertion shares: an RS256 signature by a key in FLINK's JWKS, chosen by `kid`;
@@ -27,6 +28,7 @@ final class Verifier
      * @return array<string, mixed> the verified claims
      *
      * @throws FlinkException
+     * @throws KeysUnavailable
      */
     public function claims(string $jwt, string $type): array
     {
@@ -37,10 +39,10 @@ final class Verifier
 
         try {
             $payload = JWT::decode($jwt, $this->keys->key($header['kid']));
-        } catch (FlinkException $e) {
+        } catch (FlinkException|KeysUnavailable $e) {
             throw $e;
-        } catch (ExpiredException $e) {
-            throw InvalidAssertion::expired($e);
+        } catch (ExpiredException) {
+            throw InvalidAssertion::expired();
         } catch (\Throwable $e) {
             throw InvalidSignature::failed($e);
         }
