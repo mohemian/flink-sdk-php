@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call: # release.yml runs this suite against the tagged commit
 
 permissions:
   contents: read
@@ -77,6 +78,9 @@ jobs:
 
   sonar:
     name: SonarCloud
+    # A release tag points at a commit main already analysed; scanning the tag would open a
+    # SonarCloud branch named after it.
+    if: ${{ github.ref_type != 'tag' }}
     runs-on: ubuntu-latest
     env:
       # Only whether the secret exists; the secret itself reaches the scan step alone.
