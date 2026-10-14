@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+        laravel: ['10', '11', '12', '13']
+        exclude:
+          - php: '8.4'
+            laravel: '10'
+          - php: '8.2' # Laravel 13 needs PHP 8.3
+            laravel: '13'
+        include:
+          # Every Laravel 10.x and 11.x release is under security advisories with no fix in that line
+          # (fixes ship from 12.60 and in 13.x), so Composer refuses to install them. These jobs
+          # check that the package still runs there; they ship nothing, so they ignore exactly those
+          # advisories (below) and Composer still blocks any other one.
+          - laravel: '10'
+            testbench: '8'
+            insecure: true
+          - laravel: '11'
+            testbench: '9'
+            insecure: true
+          - laravel: '12'
+            testbench: '10'
+          - laravel: '13'
+            testbench: '11'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: intl, openssl
+          coverage: none
+      - if: ${{ matrix.insecure }}
+        # The laravel/framework advisories open against every 10.x and 11.x release. A new one fails
+        # the job until it is reviewed and added here.
+        run: >-
+          composer config audit.ignore --json '[
+          "PKSA-d5tc-s1qs-h781", "PKSA-m5cs-t1y6-qpcs", "PKSA-3r5d-mb8f-1qw9", "PKSA-mdq4-51ck-6kdq"
+          ]'
+      - run: composer require --no-update "illuminate/support:^${{ matrix.laravel }}.0" "orchestra/testbench:^${{ matrix.testbench }}.0"
+      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: vendor/bin/pest
+      - run: vendor/bin/phpstan analyse --no-progress
+
+  format:
+    name: Format (Rector + Pint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4' # the newest Pint needs 8.3+; rector.php still targets 8.2
+          extensions: intl, openssl
+          coverage: none
+      - run: composer update --prefer-dist --no-interaction --no-progress
+      # Fails on any change Rector or Pint would make; run `composer format` to apply them.
+      - run: vendor/bin/rector --dry-run --no-progress-bar
+      - run: vendor/bin/pint --test
+
+  sonar:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    env:
+      # Only whether the secret exists; the secret itself reaches the scan step alone.
+      HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
+    steps:
+      - name: Require SONAR_TOKEN
+        # Fail rather than skip: a skipped scan leaves this job green over code nobody analysed.
+        if: ${{ env.HAS_SONAR_TOKEN != 'true' }}
+        run: |
+          echo "::error title=SONAR_TOKEN missing::SONAR_TOKEN is not available to this repository, so SonarCloud cannot analyse it. An org admin must grant the organisation secret to mohemian/flink-sdk-php."
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # SonarCloud needs the history for new-code detection
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          extensions: intl, openssl
+          coverage: pcov
+      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: vendor/bin/pest --coverage-clover coverage/clover.xml
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

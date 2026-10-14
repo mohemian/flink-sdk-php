@@ -1,0 +1,74 @@
+{
+    "name": "mohemian/flink-sdk-php",
+    "description": "Verify FLINK's signed assertions (eID prefill, flow results) in a Laravel backend.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "flink",
+        "id-austria",
+        "eid",
+        "jwt",
+        "jwks",
+        "laravel"
+    ],
+    "require": {
+        "php": "^8.2",
+        "ext-intl": "*",
+        "firebase/php-jwt": "^7.0",
+        "guzzlehttp/guzzle": "^7.2",
+        "illuminate/cache": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/console": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/events": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/session": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/validation": "^10.0|^11.0|^12.0|^13.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.13",
+        "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
+        "pestphp/pest": "^2.36|^3.8|^4.0|^5.0",
+        "phpstan/phpstan": "^2.0",
+        "rector/rector": "^2.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mohemian\\Flink\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Mohemian\\Flink\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Mohemian\\Flink\\FlinkServiceProvider"
+            ],
+            "aliases": {
+                "Flink": "Mohemian\\Flink\\Facades\\Flink"
+            }
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "analyse": "phpstan analyse",
+        "format": [
+            "rector",
+            "pint"
+        ],
+        "format:check": [
+            "rector --dry-run",
+            "pint --test"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable"
+}
