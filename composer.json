@@ -26,9 +26,11 @@
         "illuminate/validation": "^10.0|^11.0|^12.0|^13.0"
     },
     "require-dev": {
+        "laravel/pint": "^1.13",
         "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
         "pestphp/pest": "^2.36|^3.8|^4.0|^5.0",
-        "phpstan/phpstan": "^2.0"
+        "phpstan/phpstan": "^2.0",
+        "rector/rector": "^2.7"
     },
     "autoload": {
         "psr-4": {
@@ -52,7 +54,15 @@
     },
     "scripts": {
         "test": "pest",
-        "analyse": "phpstan analyse"
+        "analyse": "phpstan analyse",
+        "format": [
+            "rector",
+            "pint"
+        ],
+        "format:check": [
+            "rector --dry-run",
+            "pint --test"
+        ]
     },
     "config": {
         "sort-packages": true,

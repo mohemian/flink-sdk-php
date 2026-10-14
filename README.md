@@ -145,8 +145,10 @@ $fake->results(['identity' => ['givenName' => 'Erika']]);
 
 ```bash
 composer install
-composer test      # Pest
-composer analyse   # PHPStan
+composer test           # Pest
+composer analyse        # PHPStan
+composer format         # Rector, then Pint: rewrites the code in place
+composer format:check   # what CI runs: fails on anything `format` would change
 ```
 
 ## License
