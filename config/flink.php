@@ -18,7 +18,7 @@ return [
         // Compared as a browser Origin: lowercased, without a path or a default port.
         'audience' => env('FLINK_AUDIENCE'),
 
-        // The journeys whose prefill you accept: their public ids, comma-separated, as on the
+        // The journeys whose prefill and results you accept: their public ids, comma-separated, as on the
         // console's Start & integrate tab. Required: any tenant can list your origin as an allowed
         // origin, so `aud` alone is not enough.
         'journeys' => env('FLINK_JOURNEYS'),

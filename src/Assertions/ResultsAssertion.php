@@ -5,6 +5,7 @@ namespace Mohemian\Flink\Assertions;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\Arrayable;
+use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
 
 /**
@@ -20,6 +21,9 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
     /**
      * @param  array<string, array{value: mixed, source: string}>  $attributes
      * @param  array<string, array<string, mixed>>  $sources
+     * @param  list<string>  $derivedAttributes  the attributes FLINK derived (an `ageOver*` from a
+     *                                           verified birthdate) rather than read from a source
+     * @param  ?string  $derivedAsOf  the UTC day those were derived; a derived `ageOver18` holds as of it
      */
     public function __construct(
         public readonly array $attributes,
@@ -28,6 +32,8 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
         public readonly string $journeyId,
         public readonly string $id,
         public readonly CarbonImmutable $issuedAt,
+        public readonly array $derivedAttributes = [],
+        public readonly ?string $derivedAsOf = null,
     ) {}
 
     public static function type(): string
@@ -47,8 +53,14 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
 
     public static function expectations(Container $app): array
     {
+        $config = $app->make('config');
+
         return [
-            'aud' => fn (): mixed => $app->make('config')->get('flink.results.audience') ?: throw MissingConfiguration::for('FLINK_RESULTS_AUDIENCE'),
+            'aud' => fn (): mixed => $config->get('flink.results.audience') ?: throw MissingConfiguration::for('FLINK_RESULTS_AUDIENCE'),
+            // `aud` is the bare client id and names no journey: a result is bound to its journey here.
+            'journeys' => fn (): array => self::list($config->get('flink.prefill.journeys')) ?: throw MissingConfiguration::for('FLINK_JOURNEYS'),
+            // The session the caller fetched the result for, when it names one.
+            'session' => fn (): ?string => null,
         ];
     }
 
@@ -56,6 +68,13 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
     {
         self::expect($claims, 'ver', 1);
         self::expect($claims, 'aud', $expected['aud']);
+        if (! in_array($claims['journeyId'] ?? null, $expected['journeys'], true)) {
+            throw InvalidAssertion::mismatch('journeyId');
+        }
+        if ($expected['session'] !== null) {
+            self::expect($claims, 'sessionId', $expected['session']);
+        }
+        $derived = $claims['derivedAttributes'] ?? [];
 
         /** @var array<string, array{value: mixed, source: string}> $attributes */
         $attributes = self::arrayClaim($claims, 'attributes');
@@ -69,6 +88,8 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
             self::stringClaim($claims, 'journeyId'),
             self::stringClaim($claims, 'jti'),
             CarbonImmutable::createFromTimestamp(self::intClaim($claims, 'iat')),
+            is_array($derived) ? array_values(array_filter($derived, is_string(...))) : [],
+            is_string($claims['derivedAsOf'] ?? null) ? $claims['derivedAsOf'] : null,
         );
     }
 

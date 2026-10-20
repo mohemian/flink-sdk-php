@@ -68,8 +68,10 @@ final readonly class FlinkFake
         foreach ($attributes as $attribute) {
             $sources[$attribute['source']] = ['obtainedAt' => gmdate('Y-m-d\\TH:i:s.000\\Z')];
         }
+        $default = ResultsAssertion::expectations($this->app);
         $claims += $this->defaults($claims, [
-            'aud' => ResultsAssertion::expectations($this->app)['aud'],
+            'aud' => $default['aud'],
+            'journeyId' => fn (): mixed => $default['journeys']()[0],
         ]) + [
             'iss' => $verifier->issuer,
             'iat' => time(),
@@ -77,7 +79,6 @@ final readonly class FlinkFake
             'ver' => 1,
             'tenantId' => $verifier->tenantId,
             'sessionId' => (string) Str::uuid(),
-            'journeyId' => 'FAKEJOURNEY',
             'completedAt' => gmdate('Y-m-d\\TH:i:s.000\\Z'),
             'attributes' => $attributes,
             'sources' => (object) $sources,

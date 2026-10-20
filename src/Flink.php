@@ -40,9 +40,9 @@ final readonly class Flink
      * @throws FlinkException
      * @throws MissingConfiguration
      */
-    public function results(mixed $jwt): ResultsAssertion
+    public function results(mixed $jwt, ?string $sessionId = null): ResultsAssertion
     {
-        return $this->verify($jwt, ResultsAssertion::class);
+        return $this->verify($jwt, ResultsAssertion::class, $sessionId === null ? [] : ['session' => $sessionId]);
     }
 
     /**

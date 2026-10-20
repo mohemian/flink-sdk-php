@@ -137,18 +137,6 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
     }
 
     /**
-     * `FLINK_JOURNEYS` is a comma-separated string; a published config may hold an array instead.
-     *
-     * @return list<string>
-     */
-    private static function list(mixed $journeys): array
-    {
-        $list = is_array($journeys) ? $journeys : explode(',', (string) $journeys);
-
-        return array_values(array_filter(array_map(fn ($journey): string => trim((string) $journey), $list), fn (string $journey): bool => $journey !== ''));
-    }
-
-    /**
      * `https://www.Example.com:443/apply` → `https://www.example.com`: the browser Origin, which is
      * what FLINK puts in `aud`. Scheme and host lowercased, a default port and the path dropped.
      */

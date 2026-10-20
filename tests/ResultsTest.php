@@ -39,9 +39,32 @@ it('rejects a results claim', function (array $claims, string $message): void {
     'no attributes' => [['attributes' => null], 'Claim attributes is missing'],
     'no sources' => [['sources' => null], 'Claim sources is missing'],
     'no sessionId' => [['sessionId' => null], 'Claim sessionId is missing'],
-    'no journeyId' => [['journeyId' => null], 'Claim journeyId is missing'],
+    'no journeyId' => [['journeyId' => null], 'Claim journeyId does not match'],
+    'another journey' => [['journeyId' => 'OTHERJOURNEY'], 'Claim journeyId does not match'],
     'no iat' => [['iat' => null], 'Claim iat is missing'],
 ]);
+
+it('accepts a result only for the session the caller asked for, when it names one', function (): void {
+    expect(Flink::results($this->resultsJwt(), TestCase::SESSION)->sessionId)->toBe(TestCase::SESSION)
+        ->and(fn () => Flink::results($this->resultsJwt(), '7d5c3a8e-0000-4000-8000-000000000002'))
+        ->toThrow(InvalidAssertion::class, 'Claim sessionId does not match');
+});
+
+it('requires the journeys a result may come from', function (): void {
+    config(['flink.prefill.journeys' => null]);
+
+    Flink::results($this->resultsJwt());
+})->throws(MissingConfiguration::class, 'Set FLINK_JOURNEYS');
+
+it('exposes which attributes FLINK derived, and as of which day', function (): void {
+    $plain = Flink::results($this->resultsJwt());
+    $derived = Flink::results($this->resultsJwt(['derivedAttributes' => ['ageOver18'], 'derivedAsOf' => '2026-10-20']));
+
+    expect($plain->derivedAttributes)->toBe([])
+        ->and($plain->derivedAsOf)->toBeNull()
+        ->and($derived->derivedAttributes)->toBe(['ageOver18'])
+        ->and($derived->derivedAsOf)->toBe('2026-10-20');
+});
 
 it('refuses a result signed RS256, even by a key FLINK publishes', function (): void {
     // The same JWKS serves the prefill's RS256 key; only ES256 is a result.
@@ -100,6 +123,6 @@ it('refuses a type that is not an assertion', function (): void {
 it('needs no configuration for an expectation the caller supplies', function (): void {
     config(['flink.results.audience' => null, 'flink.prefill.journeys' => null]);
 
-    expect(Flink::verify($this->resultsJwt(), ResultsAssertion::class, ['aud' => TestCase::RP]))->toBeInstanceOf(ResultsAssertion::class)
+    expect(Flink::verify($this->resultsJwt(), ResultsAssertion::class, ['aud' => TestCase::RP, 'journeys' => [TestCase::JOURNEY]]))->toBeInstanceOf(ResultsAssertion::class)
         ->and(Flink::verify($this->jwt([]), PrefillAssertion::class, ['journeys' => [TestCase::JOURNEY], 'reference' => TestCase::REF]))->toBeInstanceOf(PrefillAssertion::class);
 });

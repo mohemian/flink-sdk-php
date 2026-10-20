@@ -49,8 +49,8 @@ it('needs no configuration for a claim the test supplies', function (): void {
     $fake = Flink::fake();
 
     $prefill = $fake->prefill(claims: ['journey' => 'J1']);
-    $results = $fake->results(claims: ['aud' => 'rp']);
+    $results = $fake->results(claims: ['aud' => 'rp', 'journeyId' => 'J1']);
 
     expect(Flink::verify($prefill, PrefillAssertion::class, ['journeys' => ['J1']])->journey)->toBe('J1')
-        ->and(Flink::verify($results, ResultsAssertion::class, ['aud' => 'rp'])->sessionId)->toBeString();
+        ->and(Flink::verify($results, ResultsAssertion::class, ['aud' => 'rp', 'journeys' => ['J1']])->sessionId)->toBeString();
 });

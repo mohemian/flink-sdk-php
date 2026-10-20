@@ -94,4 +94,16 @@ abstract class Assertion
     {
         return is_int($claims[$claim] ?? null) ? $claims[$claim] : throw InvalidAssertion::missing($claim);
     }
+
+    /**
+     * `FLINK_JOURNEYS` is a comma-separated string; a published config may hold an array instead.
+     *
+     * @return list<string>
+     */
+    protected static function list(mixed $journeys): array
+    {
+        $list = is_array($journeys) ? $journeys : explode(',', (string) $journeys);
+
+        return array_values(array_filter(array_map(fn ($journey): string => trim((string) $journey), $list), fn (string $journey): bool => $journey !== ''));
+    }
 }

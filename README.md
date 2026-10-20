@@ -127,12 +127,16 @@ A relying party's backend fetches a completed session's result from FLINK with i
 `{ "signedResult": "<jwt>" }`. `Flink::results()` verifies that JWT: ES256 only (the same JWKS serves
 the prefill's RS256 key, which is refused here), header `typ` = `flink-result+jwt`, `iss` =
 `FLINK_URL`, `aud` = `FLINK_RESULTS_AUDIENCE` (FLINK signs each result for the client id that fetched
-it), `tenantId` is yours, `ver` = 1. It has no `exp`: it records a fact, so a result you keep stays
+it), `tenantId` is yours, `journeyId` is one of `FLINK_JOURNEYS` (`aud` names no journey, so this is
+what keeps a result from your other journey out), and `ver` = 1. Pass the session you fetched it for,
+`Flink::results($jwt, $sessionId)`, and a result for another session is refused too. It has no `exp`: it records a fact, so a result you keep stays
 verifiable.
 
 Its `attributes` are flat, under the EUDI PID names (`givenName`, `birthdate`, `address.locality`,
 `personalAdministrativeNumber`, …), and include values FLINK or a provider derived
-(`emailAddressVerified`, `sanctionsMatchFound`, `livenessPassed`, …). Each is
+(`emailAddressVerified`, `sanctionsMatchFound`, `livenessPassed`, …). An `ageOver*` FLINK derived from
+a verified birthdate, rather than read from the issuer, is named in `$results->derivedAttributes` and
+holds as of `$results->derivedAsOf`. Each is
 `{ value, source }`, where `source` is a `urn:flink:source:*` identifier keying `sources`, the
 provenance. Every attribute is optional: absent means not handed over, never false. Ignore names
 you do not know; new ones are added without a version bump.
@@ -158,7 +162,8 @@ $fake->results(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:sourc
 
 - `Flink::results()` verifies a `flink-result+jwt` (ES256) instead of a `flow-results+jwt`: read
   `attributes`, `sources`, `journeyId` and `get('givenName')` instead of `results` and
-  `get('identity.givenName')`. Set `FLINK_RESULTS_AUDIENCE` to your backend's client id.
+  `get('identity.givenName')`. Set `FLINK_RESULTS_AUDIENCE` to your backend's client id, and
+  `FLINK_JOURNEYS` to the journeys whose results you accept.
 - `KeySet::key()` takes the expected algorithm as a second argument: a custom key set must return a
   key of exactly that algorithm.
 - `Verifier::claims()` takes the assertion class (`ResultsAssertion::class`) instead of its `typ`.
