@@ -69,7 +69,7 @@ final readonly class Flink
         $verifier = $this->app->make(Verifier::class);
 
         try {
-            $claims = $verifier->claims(is_string($jwt) && $jwt !== '' ? $jwt : throw InvalidSignature::malformed(), $type::type());
+            $claims = $verifier->claims(is_string($jwt) && $jwt !== '' ? $jwt : throw InvalidSignature::malformed($type::algorithm()), $type);
             $assertion = $type::fromClaims($claims, $expected);
         } catch (FlinkException $e) {
             $this->dispatch(new AssertionRejected($type, $e->getMessage(), $e::class));

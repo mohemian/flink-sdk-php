@@ -15,7 +15,7 @@ interface KeySet
      * @throws InvalidSignature for an unknown kid or a key that is not RS256
      * @throws KeysUnavailable when the keys cannot be fetched
      */
-    public function key(string $kid): Key;
+    public function key(string $kid, string $alg): Key;
 
     /** Drop what is cached, so the next lookup fetches the keys again. */
     public function forget(): void;

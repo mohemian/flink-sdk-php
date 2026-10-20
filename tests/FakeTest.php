@@ -32,9 +32,9 @@ it('lets a test override or drop claims to build a rejection', function (): void
 });
 
 it('signs results assertions too', function (): void {
-    $jwt = Flink::fake()->results(['identity' => ['givenName' => 'Max']]);
+    $jwt = Flink::fake()->results(['givenName' => ['value' => 'Max', 'source' => 'urn:flink:source:eid:oidc']]);
 
-    expect(Flink::results($jwt)->get('identity.givenName'))->toBe('Max');
+    expect(Flink::results($jwt)->get('givenName'))->toBe('Max');
 });
 
 it('no longer accepts tokens signed by the real keys once faked', function (): void {

@@ -22,7 +22,7 @@ FLINK_TENANT_ID=…   # the console's journey page, "Start & integrate"
 FLINK_JOURNEYS=…    # the journey's public id, same place; several comma-separated
 # FLINK_URL=https://flink-services.mohemian.rocks  (default)
 # FLINK_AUDIENCE=https://www.example.at            (default: APP_URL's origin)
-# FLINK_RESULTS_AUDIENCE=…                         (only to verify results assertions)
+# FLINK_RESULTS_AUDIENCE=…                         (only to verify results: your backend's client id)
 ```
 
 ## Verify a prefill
@@ -112,12 +112,30 @@ prefill would make it replayable forever):
 use Mohemian\Flink\Assertions\PrefillAssertion;
 use Mohemian\Flink\Assertions\ResultsAssertion;
 
-$results = Flink::results($jwt);                         // flow-results+jwt, aud = FLINK_RESULTS_AUDIENCE
-$results->results; $results->get('identity.givenName');
+$results = Flink::results($jwt);                         // flink-result+jwt, aud = FLINK_RESULTS_AUDIENCE
+$results->get('givenName'); $results->get('address.locality'); $results->source('givenName');
+$results->attributes; $results->sources; $results->journeyId;
 
 Flink::verify($jwt, ResultsAssertion::class);            // the same, for any Assertion subclass
 Flink::verify($jwt, PrefillAssertion::class, ['reference' => $reference]); // override an expectation
 ```
+
+### A session's result
+
+A relying party's backend fetches a completed session's result from FLINK with its own client token
+(`GET /client/v1/tenants/{tenantId}/sessions/{sessionId}/results`, FLNK-861) and gets
+`{ "signedResult": "<jwt>" }`. `Flink::results()` verifies that JWT: ES256 only (the same JWKS serves
+the prefill's RS256 key, which is refused here), header `typ` = `flink-result+jwt`, `iss` =
+`FLINK_URL`, `aud` = `FLINK_RESULTS_AUDIENCE` (FLINK signs each result for the client id that fetched
+it), `tenantId` is yours, `ver` = 1. It has no `exp`: it records a fact, so a result you keep stays
+verifiable.
+
+Its `attributes` are flat, under the EUDI PID names (`givenName`, `birthdate`, `address.locality`,
+`personalAdministrativeNumber`, …), and include values FLINK or a provider derived
+(`emailAddressVerified`, `sanctionsMatchFound`, `livenessPassed`, …). Each is
+`{ value, source }`, where `source` is a `urn:flink:source:*` identifier keying `sources`, the
+provenance. Every attribute is optional: absent means not handed over, never false. Ignore names
+you do not know; new ones are added without a version bump.
 
 ## Testing your app
 
@@ -131,7 +149,7 @@ $jwt = $fake->prefill(['givenName' => 'Erika']);            // bound to this ses
 $this->post('/flink/prefill', ['prefill_jwt' => $jwt])->assertNoContent();
 
 $fake->prefill(claims: ['method' => 'doc']);                 // override or drop (null) a claim
-$fake->results(['identity' => ['givenName' => 'Erika']]);
+$fake->results(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:source:eid:oidc']]);
 ```
 
 ## Operations

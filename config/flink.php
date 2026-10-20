@@ -31,9 +31,9 @@ return [
         'session_key' => 'flink.reference',
     ],
 
-    // `flow-results+jwt`: FLINK's durable assertion of a session's results.
+    // `flink-result+jwt` (FLNK-861): FLINK's signed result of a session, ES256.
     'results' => [
-        // The audience the result token was minted for: the assertion's `aud`.
+        // FLINK signs each result for the client that fetched it: your backend's client id is `aud`.
         'audience' => env('FLINK_RESULTS_AUDIENCE'),
     ],
 
