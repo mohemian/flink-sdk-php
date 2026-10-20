@@ -35,7 +35,7 @@ final readonly class Flink
     }
 
     /**
-     * Verify a `flow-results+jwt`.
+     * Verify a session's `flink-result+jwt` (ES256, FLNK-861).
      *
      * @throws FlinkException
      * @throws MissingConfiguration

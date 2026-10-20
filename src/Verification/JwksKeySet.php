@@ -12,7 +12,7 @@ use Mohemian\Flink\Contracts\KeySet;
 use Mohemian\Flink\Exceptions\InvalidSignature;
 use Mohemian\Flink\Exceptions\KeysUnavailable;
 
-/** FLINK's flow-results keys, cached for `$ttl` (the endpoint's max-age), refetched on an unknown kid. */
+/** FLINK's signing keys (the flow-results JWKS: RS256 and ES256), cached for `$ttl` (the endpoint's max-age), refetched on an unknown kid. */
 final readonly class JwksKeySet implements KeySet
 {
     public function __construct(

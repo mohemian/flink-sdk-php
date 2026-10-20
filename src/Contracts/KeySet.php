@@ -12,7 +12,7 @@ use Mohemian\Flink\Exceptions\KeysUnavailable;
 interface KeySet
 {
     /**
-     * @throws InvalidSignature for an unknown kid or a key that is not RS256
+     * @throws InvalidSignature for an unknown kid or a key of another algorithm than `$alg`
      * @throws KeysUnavailable when the keys cannot be fetched
      */
     public function key(string $kid, string $alg): Key;

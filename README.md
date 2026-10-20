@@ -152,6 +152,18 @@ $fake->prefill(claims: ['method' => 'doc']);                 // override or drop
 $fake->results(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:source:eid:oidc']]);
 ```
 
+## Upgrading from 0.1
+
+0.2 follows flink-services' results contract (FLNK-861); the prefill is unchanged.
+
+- `Flink::results()` verifies a `flink-result+jwt` (ES256) instead of a `flow-results+jwt`: read
+  `attributes`, `sources`, `journeyId` and `get('givenName')` instead of `results` and
+  `get('identity.givenName')`. Set `FLINK_RESULTS_AUDIENCE` to your backend's client id.
+- `KeySet::key()` takes the expected algorithm as a second argument: a custom key set must return a
+  key of exactly that algorithm.
+- `Verifier::claims()` takes the assertion class (`ResultsAssertion::class`) instead of its `typ`.
+- `Flink::fake()->results()` takes attributes (`['givenName' => ['value' => …, 'source' => …]]`).
+
 ## Operations
 
 - `php artisan flink:keys:clear` forgets the cached keys, so the next verification fetches them.
