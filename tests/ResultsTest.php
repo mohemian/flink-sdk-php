@@ -56,14 +56,24 @@ it('requires the journeys a result may come from', function (): void {
     Flink::results($this->resultsJwt());
 })->throws(MissingConfiguration::class, 'Set FLINK_JOURNEYS');
 
-it('exposes which attributes FLINK derived, and as of which day', function (): void {
-    $plain = Flink::results($this->resultsJwt());
-    $derived = Flink::results($this->resultsJwt(['derivedAttributes' => ['ageOver18'], 'derivedAsOf' => '2026-10-20']));
+it('says which attribute FLINK derived, and as of which day', function (): void {
+    $results = Flink::results($this->resultsJwt(['attributes' => [
+        'birthdate' => ['value' => '1990-01-01', 'source' => TestCase::EID],
+        'ageOver18' => ['value' => true, 'source' => TestCase::EID, 'derivedAsOf' => '2026-10-20'],
+    ]]));
 
-    expect($plain->derivedAttributes)->toBe([])
-        ->and($plain->derivedAsOf)->toBeNull()
-        ->and($derived->derivedAttributes)->toBe(['ageOver18'])
-        ->and($derived->derivedAsOf)->toBe('2026-10-20');
+    expect($results->derivedAsOf('ageOver18'))->toBe('2026-10-20')
+        ->and($results->derivedAsOf('birthdate'))->toBeNull()
+        ->and($results->derivedAsOf('ageOver14'))->toBeNull()
+        ->and($results->get('ageOver18'))->toBeTrue();
+});
+
+it('accepts an aud array that holds the client id', function (): void {
+    expect(Flink::results($this->resultsJwt(['aud' => ['intermediary', TestCase::RP]]))->sessionId)->toBe(TestCase::SESSION)
+        ->and(fn () => Flink::results($this->resultsJwt(['aud' => ['intermediary']])))
+        ->toThrow(InvalidAssertion::class, 'Claim aud does not match')
+        ->and(fn () => Flink::results($this->resultsJwt(['aud' => []])))
+        ->toThrow(InvalidAssertion::class, 'Claim aud does not match');
 });
 
 it('refuses a result signed RS256, even by a key FLINK publishes', function (): void {

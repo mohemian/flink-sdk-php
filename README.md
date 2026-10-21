@@ -126,7 +126,7 @@ A relying party's backend fetches a completed session's result from FLINK with i
 (`GET /client/v1/tenants/{tenantId}/sessions/{sessionId}/results`, FLNK-861) and gets
 `{ "signedResult": "<jwt>" }`. `Flink::results()` verifies that JWT: ES256 only (the same JWKS serves
 the prefill's RS256 key, which is refused here), header `typ` = `flink-result+jwt`, `iss` =
-`FLINK_URL`, `aud` = `FLINK_RESULTS_AUDIENCE` (FLINK signs each result for the client id that fetched
+`FLINK_URL`, `aud` is or contains `FLINK_RESULTS_AUDIENCE` (FLINK signs each result for the client id that fetched
 it), `tenantId` is yours, `journeyId` is one of `FLINK_JOURNEYS` (`aud` names no journey, so this is
 what keeps a result from your other journey out), and `ver` = 1. Pass the session you fetched it for,
 `Flink::results($jwt, $sessionId)`, and a result for another session is refused too. It has no `exp`: it records a fact, so a result you keep stays
@@ -134,12 +134,12 @@ verifiable.
 
 Its `attributes` are flat, under the EUDI PID names (`givenName`, `birthdate`, `address.locality`,
 `personalAdministrativeNumber`, …), and include values FLINK or a provider derived
-(`emailAddressVerified`, `sanctionsMatchFound`, `livenessPassed`, …). An `ageOver*` FLINK derived from
-a verified birthdate, rather than read from the issuer, is named in `$results->derivedAttributes` and
-holds as of `$results->derivedAsOf`. Each is
+(`emailAddressVerified`, `sanctionsMatchFound`, `livenessPassed`, …). Each is
 `{ value, source }`, where `source` is a `urn:flink:source:*` identifier keying `sources`, the
 provenance. Every attribute is optional: absent means not handed over, never false. Ignore names
-you do not know; new ones are added without a version bump.
+you do not know; new ones are added without a version bump. An `ageOver*` FLINK derived from a
+verified birthdate, rather than read from the issuer, also carries `derivedAsOf`, the day it holds as
+of: `$results->derivedAsOf('ageOver18')` returns it, or null for an issuer's own value.
 
 ## Testing your app
 

@@ -19,11 +19,8 @@ use Mohemian\Flink\Exceptions\MissingConfiguration;
 final class ResultsAssertion extends Assertion implements \JsonSerializable, Arrayable
 {
     /**
-     * @param  array<string, array{value: mixed, source: string}>  $attributes
+     * @param  array<string, array{value: mixed, source: string, derivedAsOf?: string}>  $attributes
      * @param  array<string, array<string, mixed>>  $sources
-     * @param  list<string>  $derivedAttributes  the attributes FLINK derived (an `ageOver*` from a
-     *                                           verified birthdate) rather than read from a source
-     * @param  ?string  $derivedAsOf  the UTC day those were derived; a derived `ageOver18` holds as of it
      */
     public function __construct(
         public readonly array $attributes,
@@ -32,8 +29,6 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
         public readonly string $journeyId,
         public readonly string $id,
         public readonly CarbonImmutable $issuedAt,
-        public readonly array $derivedAttributes = [],
-        public readonly ?string $derivedAsOf = null,
     ) {}
 
     public static function type(): string
@@ -67,16 +62,18 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
     public static function fromClaims(array $claims, array $expected): static
     {
         self::expect($claims, 'ver', 1);
-        self::expect($claims, 'aud', $expected['aud']);
+        // RFC 7519 allows an array: the client id must be in it, which a later intermediary relies on.
+        $aud = $claims['aud'] ?? null;
+        if ($expected['aud'] === null || ! in_array($expected['aud'], is_array($aud) ? $aud : [$aud], true)) {
+            throw InvalidAssertion::mismatch('aud');
+        }
         if (! in_array($claims['journeyId'] ?? null, $expected['journeys'], true)) {
             throw InvalidAssertion::mismatch('journeyId');
         }
         if ($expected['session'] !== null) {
             self::expect($claims, 'sessionId', $expected['session']);
         }
-        $derived = $claims['derivedAttributes'] ?? [];
-
-        /** @var array<string, array{value: mixed, source: string}> $attributes */
+        /** @var array<string, array{value: mixed, source: string, derivedAsOf?: string}> $attributes */
         $attributes = self::arrayClaim($claims, 'attributes');
         /** @var array<string, array<string, mixed>> $sources */
         $sources = self::arrayClaim($claims, 'sources');
@@ -88,8 +85,6 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
             self::stringClaim($claims, 'journeyId'),
             self::stringClaim($claims, 'jti'),
             CarbonImmutable::createFromTimestamp(self::intClaim($claims, 'iat')),
-            is_array($derived) ? array_values(array_filter($derived, is_string(...))) : [],
-            is_string($claims['derivedAsOf'] ?? null) ? $claims['derivedAsOf'] : null,
         );
     }
 
@@ -109,13 +104,24 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
         return is_string($source) ? $source : null;
     }
 
-    /** @return array<string, array{value: mixed, source: string}> the verified attributes */
+    /**
+     * The UTC day FLINK derived an attribute on (an `ageOver*` from a verified `birthdate`), or null
+     * when it came from its `source` as is. A derived value holds as of that day only.
+     */
+    public function derivedAsOf(string $name): ?string
+    {
+        $day = $this->attributes[$name]['derivedAsOf'] ?? null;
+
+        return is_string($day) ? $day : null;
+    }
+
+    /** @return array<string, array{value: mixed, source: string, derivedAsOf?: string}> the verified attributes */
     public function toArray(): array
     {
         return $this->attributes;
     }
 
-    /** @return array<string, array{value: mixed, source: string}> */
+    /** @return array<string, array{value: mixed, source: string, derivedAsOf?: string}> */
     public function jsonSerialize(): array
     {
         return $this->attributes;

@@ -58,7 +58,7 @@ final readonly class FlinkFake
     /**
      * A result as flink-services signs it (FLNK-861): ES256, camelCase claims, flat attributes.
      *
-     * @param  array<string, array{value: mixed, source: string}>  $attributes
+     * @param  array<string, array{value: mixed, source: string, derivedAsOf?: string}>  $attributes
      * @param  array<string, mixed>  $claims
      */
     public function results(array $attributes = [], array $claims = []): string
