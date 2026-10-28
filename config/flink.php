@@ -35,6 +35,12 @@ return [
     'results' => [
         // FLINK signs each result for the client that fetched it: your backend's client id is `aud`.
         'audience' => env('FLINK_RESULTS_AUDIENCE'),
+
+        // To fetch results (`Flink::fetchResult()`): your backend's private key as PEM, EC P-256 or
+        // RSA of 2048 bits or more (registered as RS256), and the kid FLINK registered its public half under. FLINK holds
+        // no secret of yours. `php artisan flink:client-key` makes a pair.
+        'client_key' => env('FLINK_CLIENT_KEY'),
+        'client_key_id' => env('FLINK_CLIENT_KEY_ID'),
     ],
 
     // The signing keys are cached for a day (the JWKS endpoint's max-age). `store` null is the

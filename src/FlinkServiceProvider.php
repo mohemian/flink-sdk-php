@@ -7,6 +7,7 @@ use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\ServiceProvider;
 use Mohemian\Flink\Contracts\KeySet;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
+use Mohemian\Flink\Results\ResultClient;
 use Mohemian\Flink\Verification\JwksKeySet;
 use Mohemian\Flink\Verification\Verifier;
 
@@ -33,6 +34,25 @@ final class FlinkServiceProvider extends ServiceProvider
             $this->url($app['config']['flink']),
             (string) ($app['config']['flink.tenant_id'] ?: throw MissingConfiguration::for('FLINK_TENANT_ID')),
         ));
+        $this->app->bind(ResultClient::class, function ($app): ResultClient {
+            $config = $app['config']['flink'];
+            $url = $this->url($config);
+            $tenantId = (string) ($config['tenant_id'] ?: throw MissingConfiguration::for('FLINK_TENANT_ID'));
+            $clientId = (string) (($config['results']['audience'] ?? null) ?: throw MissingConfiguration::for('FLINK_RESULTS_AUDIENCE'));
+
+            return new ResultClient(
+                $app->make(Http::class),
+                $app['cache']->store($config['cache']['store'] ?? null),
+                $url,
+                $tenantId,
+                $clientId,
+                (string) (($config['results']['client_key'] ?? null) ?: throw MissingConfiguration::for('FLINK_CLIENT_KEY')),
+                (string) (($config['results']['client_key_id'] ?? null) ?: throw MissingConfiguration::for('FLINK_CLIENT_KEY_ID')),
+                // Per FLINK, tenant and client: apps sharing a cache store (stage and production on
+                // one Redis) must never pick up each other's token.
+                ($config['cache']['key'] ?? 'flink:jwks').':client-token:'.hash('sha256', "{$url}|{$tenantId}|{$clientId}"),
+            );
+        });
         $this->app->singleton(Flink::class, fn ($app): Flink => new Flink($app));
     }
 
@@ -45,7 +65,7 @@ final class FlinkServiceProvider extends ServiceProvider
         });
 
         if ($this->app->runningInConsole()) {
-            $this->commands([Commands\InstallCommand::class, Commands\ClearKeysCommand::class]);
+            $this->commands([Commands\InstallCommand::class, Commands\ClearKeysCommand::class, Commands\ClientKeyCommand::class]);
             if (class_exists(AboutCommand::class)) {
                 AboutCommand::add('FLINK', fn (): array => [
                     'URL' => config('flink.url'),

@@ -4,6 +4,8 @@ namespace Mohemian\Flink\Testing;
 
 use Firebase\JWT\JWT;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Mohemian\Flink\Assertions\PrefillAssertion;
 use Mohemian\Flink\Assertions\ResultsAssertion;
@@ -91,6 +93,32 @@ final readonly class FlinkFake
             self::RESULTS_KID,
             ['typ' => ResultsAssertion::type()]
         );
+    }
+
+    /**
+     * Answer `Flink::fetchResult()` as FLINK would, without reaching it: the token endpoint and the
+     * results endpoint are faked (`Http::fake`), each fetched session gets a result with these
+     * attributes, and a client key is made for the test when none is configured.
+     *
+     * @param  array<string, array{value: mixed, source: string, derivedAsOf?: string}>  $attributes
+     * @param  array<string, mixed>  $claims
+     */
+    public function serveResults(array $attributes = [], array $claims = []): void
+    {
+        $config = $this->app->make('config');
+        if (! $config->get('flink.results.client_key')) {
+            $config->set([
+                'flink.results.client_key' => KeyPair::generate('flink-fake-client', 'ES256')['private'],
+                'flink.results.client_key_id' => 'flink-fake-client',
+            ]);
+        }
+        $url = $this->app->make(Verifier::class)->issuer;
+        Http::fake([
+            "{$url}/client/v1/auth/token" => Http::response(['access_token' => 'flink-fake-token', 'token_type' => 'Bearer', 'expires_in' => 600]),
+            "{$url}/client/v1/tenants/*/sessions/*/results" => fn (Request $request): mixed => Http::response([
+                'signedResult' => $this->results($attributes, $claims + ['sessionId' => rawurldecode(explode('/', (string) parse_url($request->url(), PHP_URL_PATH))[6] ?? '')]),
+            ]),
+        ]);
     }
 
     /**

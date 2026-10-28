@@ -22,7 +22,9 @@ FLINK_TENANT_ID=…   # the console's journey page, "Start & integrate"
 FLINK_JOURNEYS=…    # the journey's public id, same place; several comma-separated
 # FLINK_URL=https://flink-services.mohemian.rocks  (default)
 # FLINK_AUDIENCE=https://www.example.at            (default: APP_URL's origin)
-# FLINK_RESULTS_AUDIENCE=…                         (only to verify results: your backend's client id)
+# FLINK_RESULTS_AUDIENCE=…                         (only for results: your backend's client id)
+# FLINK_CLIENT_KEY="-----BEGIN PRIVATE KEY-----…"  (only to fetch results: php artisan flink:client-key)
+# FLINK_CLIENT_KEY_ID=…                            (the kid FLINK registered its public half under)
 ```
 
 ## Verify a prefill
@@ -122,9 +124,32 @@ Flink::verify($jwt, PrefillAssertion::class, ['reference' => $reference]); // ov
 
 ### A session's result
 
-A relying party's backend fetches a completed session's result from FLINK with its own client token
-(`GET /client/v1/tenants/{tenantId}/sessions/{sessionId}/results`, FLNK-861) and gets
-`{ "signedResult": "<jwt>" }`. `Flink::results()` verifies that JWT: ES256 only (the same JWKS serves
+Fetch a completed session's result and verify it in one call:
+
+```php
+use Mohemian\Flink\Exceptions\ResultUnavailable;
+
+try {
+    $results = Flink::fetchResult($sessionId);
+} catch (ResultUnavailable $e) {
+    // $e->status 409: not completed yet, $e->sessionStatus says how far it is ('started', 'aborted').
+    // 401 a client id or key FLINK does not hold, 400 a grant this client may not use,
+    // 403/404 a session this client may not read, 0 or 5xx an outage. Never carries the token or the key.
+}
+```
+
+Your backend calls FLINK as its own client, bound to your tenant
+(`GET /client/v1/tenants/{tenantId}/sessions/{sessionId}/results`, FLNK-861). It proves itself with
+`private_key_jwt`: a 60-second assertion signed with your private key, `FLINK_CLIENT_KEY` (EC P-256,
+or RSA of 2048 bits or more registered as RS256), so FLINK
+holds only the public half and no shared secret exists. `php artisan flink:client-key <kid>` makes
+the pair: the private key goes into your env with its `kid` as `FLINK_CLIENT_KEY_ID`, the public key
+set goes to FLINK, which registers it for your client. The client token is cached in `flink.cache`'s
+store until shortly before it expires. A failure to hand the result over is a `ResultUnavailable`,
+deliberately not a `FlinkException`: nothing was verified, so nothing was found invalid.
+
+Fetched some other way, FLINK answers `{ "signedResult": "<jwt>" }`, and `Flink::results()` verifies
+that JWT: ES256 only (the same JWKS serves
 the prefill's RS256 key, which is refused here), header `typ` = `flink-result+jwt`, `iss` =
 `FLINK_URL`, `aud` is or contains `FLINK_RESULTS_AUDIENCE` (FLINK signs each result for the client id that fetched
 it), `tenantId` is yours, `journeyId` is one of `FLINK_JOURNEYS` (`aud` names no journey, so this is
@@ -154,11 +179,18 @@ $this->post('/flink/prefill', ['prefill_jwt' => $jwt])->assertNoContent();
 
 $fake->prefill(claims: ['method' => 'doc']);                 // override or drop (null) a claim
 $fake->results(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:source:eid:oidc']]);
+
+$fake->serveResults(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:source:eid:oidc']]);
+Flink::fetchResult($sessionId);                               // answered without FLINK, no key needed
 ```
 
 ## Upgrading from 0.1
 
 0.2 follows flink-services' results contract (FLNK-861); the prefill is unchanged.
+
+- New: `Flink::fetchResult($sessionId)` fetches and verifies a session's result with your own key
+  (`FLINK_CLIENT_KEY`, `FLINK_CLIENT_KEY_ID`; `php artisan flink:client-key` makes them). A client
+  that reads results authenticates to FLINK with its key only; a client secret no longer works for it.
 
 - `Flink::results()` verifies a `flink-result+jwt` (ES256) instead of a `flow-results+jwt`: read
   `attributes`, `sources`, `journeyId` and `get('givenName')` instead of `results` and
@@ -172,6 +204,11 @@ $fake->results(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:sourc
 ## Operations
 
 - `php artisan flink:keys:clear` forgets the cached keys, so the next verification fetches them.
+- Telescope (or any watcher of the HTTP client) records response bodies: hide `access_token` and
+  `signedResult` there, a live token and the applicant's data.
+- `php artisan flink:client-key <kid>` makes the key pair `Flink::fetchResult()` uses. To rotate,
+  register the new public key with FLINK beside the old one, switch your env, then have the old one
+  removed.
 - `php artisan about` shows the FLINK settings.
 - Set `flink.events` to dispatch `AssertionVerified` and `AssertionRejected` for an audit log. The
   rejection carries the expected type, the reason and the exception class as strings, never the JWT

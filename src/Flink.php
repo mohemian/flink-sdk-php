@@ -14,6 +14,8 @@ use Mohemian\Flink\Exceptions\FlinkException;
 use Mohemian\Flink\Exceptions\InvalidSignature;
 use Mohemian\Flink\Exceptions\KeysUnavailable;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
+use Mohemian\Flink\Exceptions\ResultUnavailable;
+use Mohemian\Flink\Results\ResultClient;
 use Mohemian\Flink\Verification\Verifier;
 
 /** Verifies FLINK's signed assertions, and keeps the per-session reference a prefill is bound to. */
@@ -43,6 +45,20 @@ final readonly class Flink
     public function results(mixed $jwt, ?string $sessionId = null): ResultsAssertion
     {
         return $this->verify($jwt, ResultsAssertion::class, $sessionId === null ? [] : ['session' => $sessionId]);
+    }
+
+    /**
+     * Fetch a completed session's signed result as your backend's own client and verify it, bound
+     * to that session (FLNK-861). The client proves itself with your private key
+     * (`FLINK_CLIENT_KEY`); FLINK holds only its public half.
+     *
+     * @throws ResultUnavailable not ready yet, refused, or FLINK unreachable
+     * @throws FlinkException
+     * @throws MissingConfiguration
+     */
+    public function fetchResult(string $sessionId): ResultsAssertion
+    {
+        return $this->results($this->app->make(ResultClient::class)->signedResult($sessionId), $sessionId);
     }
 
     /**

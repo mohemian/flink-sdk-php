@@ -8,6 +8,15 @@ use Mohemian\Flink\Exceptions\InvalidSignature;
 use Mohemian\Flink\Facades\Flink;
 use Mohemian\Flink\Tests\TestCase;
 
+it('serves fetchResult without reaching FLINK or needing a client key', function (): void {
+    Flink::fake()->serveResults(['givenName' => ['value' => 'Max', 'source' => TestCase::EID]]);
+
+    $results = Flink::fetchResult(TestCase::SESSION);
+
+    expect($results->get('givenName'))->toBe('Max')->and($results->sessionId)->toBe(TestCase::SESSION);
+    Http::assertNotSent(fn ($request): bool => ! str_starts_with($request->url(), TestCase::URL.'/client/v1/'));
+});
+
 it('signs prefills the app verifies, without reaching FLINK', function (): void {
     $fake = Flink::fake();
 
