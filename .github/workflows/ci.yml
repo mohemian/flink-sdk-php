@@ -17,23 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         php: ['8.2', '8.3', '8.4']
-        laravel: ['10', '11', '12', '13']
+        laravel: ['12', '13']
         exclude:
-          - php: '8.4'
-            laravel: '10'
           - php: '8.2' # Laravel 13 needs PHP 8.3
             laravel: '13'
         include:
-          # Every Laravel 10.x and 11.x release is under security advisories with no fix in that line
-          # (fixes ship from 12.60 and in 13.x), so Composer refuses to install them. These jobs
-          # check that the package still runs there; they ship nothing, so they ignore exactly those
-          # advisories (below) and Composer still blocks any other one.
-          - laravel: '10'
-            testbench: '8'
-            insecure: true
-          - laravel: '11'
-            testbench: '9'
-            insecure: true
           - laravel: '12'
             testbench: '10'
           - laravel: '13'
@@ -47,14 +35,6 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: intl, openssl
           coverage: none
-      - if: ${{ matrix.insecure }}
-        # The laravel/framework advisories open against every 10.x and 11.x release. A new one fails
-        # the job until it is reviewed and added here.
-        run: >-
-          composer config audit.ignore --json '[
-          "PKSA-d5tc-s1qs-h781", "PKSA-m5cs-t1y6-qpcs", "PKSA-3r5d-mb8f-1qw9", "PKSA-mdq4-51ck-6kdq",
-          "PKSA-b41t-wbzk-9q51"
-          ]'
       - run: composer require --no-update "illuminate/support:^${{ matrix.laravel }}.0" "orchestra/testbench:^${{ matrix.testbench }}.0"
       - run: composer update --prefer-dist --no-interaction --no-progress
       - run: vendor/bin/pest

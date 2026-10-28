@@ -15,7 +15,7 @@ composer require mohemian/flink-sdk-php
 php artisan flink:install   # publishes config/flink.php and lists what is still unset
 ```
 
-PHP 8.2+ (8.3+ for Laravel 13), Laravel 10 to 13, `ext-intl`.
+PHP 8.2+ (8.3+ for Laravel 13), Laravel 12 or 13, `ext-intl`.
 
 ```dotenv
 FLINK_TENANT_ID=…   # the console's journey page, "Start & integrate"

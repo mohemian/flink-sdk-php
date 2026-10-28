@@ -1,7 +1,7 @@
 # Statamic: verify an ID Austria prefill
 
 This guide adds FLINK's ID Austria prefill to a Statamic form and makes sure, on submit, that the
-names and birthdate are the ones ID Austria returned. You need Statamic 5 (Laravel 10 or later), your
+names and birthdate are the ones ID Austria returned. You need Statamic on Laravel 12 or later, your
 FLINK **tenant id** and **journey id** (both on the journey's *Start & integrate* tab in the FLINK
 console), and the form page's origin registered there as an allowed origin.
 
@@ -238,12 +238,7 @@ The rotation runs on `afterSave`, which Statamic only calls when the form stores
 (`store: true`, the default). If yours does not store them, run those two lines at the end of `handle()`
 instead.
 
-Laravel 11 and later discover the listener by its type hint. On Laravel 10, register it in
-`App\Providers\EventServiceProvider::$listen`:
-
-```php
-\Statamic\Events\FormSubmitted::class => [\App\Listeners\VerifyFlinkPrefill::class],
-```
+Laravel discovers the listener by its type hint; nothing to register.
 
 Only fields the journey releases can be compared. A locked field it does not release leaves
 `identity_verified` off rather than passing unchecked, so release all three; likewise an address
