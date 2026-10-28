@@ -20,7 +20,7 @@ final class InstallCommand extends Command
         $config = (array) config('flink');
         $variables = [
             'FLINK_TENANT_ID' => ['required', $config['tenant_id'] ?? null],
-            'FLINK_JOURNEYS' => ['required for prefills', $config['prefill']['journeys'] ?? null],
+            'FLINK_JOURNEYS' => ['required for prefills and results', $config['prefill']['journeys'] ?? null],
             'FLINK_RESULTS_AUDIENCE' => ['required for results', $config['results']['audience'] ?? null],
             'FLINK_CLIENT_KEY' => ['only to fetch results: php artisan flink:client-key', $config['results']['client_key'] ?? null],
             'FLINK_CLIENT_KEY_ID' => ['only to fetch results', $config['results']['client_key_id'] ?? null],

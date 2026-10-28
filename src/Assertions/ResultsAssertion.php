@@ -71,7 +71,11 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
             throw InvalidAssertion::mismatch('journeyId');
         }
         if ($expected['session'] !== null) {
-            self::expect($claims, 'sessionId', $expected['session']);
+            // services signs the stored id and its lookup takes a UUID in any case, so compare without case.
+            $signed = $claims['sessionId'] ?? null;
+            if (! is_string($signed) || ! is_string($expected['session']) || strtolower($signed) !== strtolower($expected['session'])) {
+                throw InvalidAssertion::mismatch('sessionId');
+            }
         }
         /** @var array<string, array{value: mixed, source: string, derivedAsOf?: string}> $attributes */
         $attributes = self::arrayClaim($claims, 'attributes');

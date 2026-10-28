@@ -44,6 +44,10 @@ it('rejects a results claim', function (array $claims, string $message): void {
     'no iat' => [['iat' => null], 'Claim iat is missing'],
 ]);
 
+it('accepts the session id in any case: services signs the stored row and looks a UUID up in any case', function (): void {
+    expect(Flink::results($this->resultsJwt(), strtoupper(TestCase::SESSION))->sessionId)->toBe(TestCase::SESSION);
+});
+
 it('accepts a result only for the session the caller asked for, when it names one', function (): void {
     expect(Flink::results($this->resultsJwt(), TestCase::SESSION)->sessionId)->toBe(TestCase::SESSION)
         ->and(fn () => Flink::results($this->resultsJwt(), '7d5c3a8e-0000-4000-8000-000000000002'))
