@@ -42,6 +42,11 @@ return [
         // no secret of yours. `php artisan flink:client-key` makes a pair.
         'client_key' => env('FLINK_CLIENT_KEY'),
         'client_key_id' => env('FLINK_CLIENT_KEY_ID'),
+
+        // Or, instead of the client key, a journey API key (`flk_…`, FLNK-859) from the journey's Start
+        // tab in the console: it reads any session of that journey. `audience` may then stay unset:
+        // FLINK signs results for the key's own subject, `apikey:<key id>`, which is read from its token.
+        'api_key' => env('FLINK_API_KEY'),
     ],
 
     // The signing keys are cached for a day (the JWKS endpoint's max-age). `store` null is the

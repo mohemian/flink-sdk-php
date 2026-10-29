@@ -22,6 +22,8 @@ FLINK_TENANT_ID=…   # the console's journey page, "Start & integrate"
 FLINK_JOURNEYS=…    # the journey's public id, same place; several comma-separated
 # FLINK_URL=https://flink-services.mohemian.rocks  (default)
 # FLINK_AUDIENCE=https://www.example.at            (default: APP_URL's origin)
+# FLINK_API_KEY=flk_…                              (to fetch results: the journey's API key, from its Start tab)
+# or, instead of the API key:
 # FLINK_RESULTS_AUDIENCE=…                         (only for results: your backend's client id)
 # FLINK_CLIENT_KEY="-----BEGIN PRIVATE KEY-----…"  (only to fetch results: php artisan flink:client-key)
 # FLINK_CLIENT_KEY_ID=…                            (the kid FLINK registered its public half under)
@@ -140,8 +142,19 @@ try {
 ```
 
 Your backend calls FLINK as its own client, bound to your tenant
-(`GET /client/v1/tenants/{tenantId}/sessions/{sessionId}/results`, FLNK-861). It proves itself with
-`private_key_jwt`: a 60-second assertion signed with your private key, `FLINK_CLIENT_KEY` (EC P-256,
+(`GET /client/v1/tenants/{tenantId}/sessions/{sessionId}/results`, FLNK-861).
+
+The simplest way to prove itself is a **journey API key** (FLNK-859): create it on the journey's
+Start tab in the console and set it as `FLINK_API_KEY`. The key is bound to your tenant and that one
+journey, and reads the result of any session of it, whoever started it (your page, the flow link, a
+QR code or the app); test runs and other journeys' sessions answer `404`. It is sent as `X-Api-Key`
+to FLINK's token endpoint only. FLINK signs each result for the key's own subject,
+`apikey:<key id>`, which the package reads from the key's token and keeps, so `FLINK_RESULTS_AUDIENCE`
+can stay unset; set it to that subject if a kept result should verify before the package ever
+asked FLINK for a token. Revoking the key in the console stops it on the next request (`401`).
+Set the key or the client key below, not both.
+
+Or it proves itself with `private_key_jwt`: a 60-second assertion signed with your private key, `FLINK_CLIENT_KEY` (EC P-256,
 or RSA of 2048 bits or more registered as RS256), so FLINK
 holds only the public half and no shared secret exists. `php artisan flink:client-key <kid>` makes
 the pair: the private key goes into your env with its `kid` as `FLINK_CLIENT_KEY_ID`, the public key
@@ -185,6 +198,13 @@ $fake->serveResults(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:
 Flink::fetchResult($sessionId);                               // answered without FLINK, no key needed
 ```
 
+## Upgrading from 0.2
+
+0.3 adds `FLINK_API_KEY`: `Flink::fetchResult()` can authenticate with a journey API key instead of
+`FLINK_CLIENT_KEY` (needs flink-services with FLNK-859). Nothing changes for a client key. A custom
+binding that constructs `ResultClient` itself: its client id, key and kid are nullable now, and the
+API key is a new last argument.
+
 ## Upgrading from 0.1
 
 0.2 follows flink-services' results contract (FLNK-861); the prefill is unchanged.
@@ -213,8 +233,9 @@ Flink::fetchResult($sessionId);                               // answered withou
 ## Operations
 
 - `php artisan flink:keys:clear` forgets the cached keys, so the next verification fetches them.
-- Telescope (or any watcher of the HTTP client) records response bodies: hide `access_token` and
-  `signedResult` there, a live token and the applicant's data.
+- Telescope (or any watcher of the HTTP client) records request headers and response bodies: hide
+  the `X-Api-Key` header, `access_token` and `signedResult` there, your API key, a live token and the
+  applicant's data.
 - `php artisan flink:client-key <kid>` makes the key pair `Flink::fetchResult()` uses. To rotate,
   register the new public key with FLINK beside the old one, switch your env, then have the old one
   removed.

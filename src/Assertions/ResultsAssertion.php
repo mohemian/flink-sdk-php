@@ -7,6 +7,7 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\Arrayable;
 use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
+use Mohemian\Flink\Results\ResultClient;
 
 /**
  * The `flink-result+jwt` a relying party's backend fetches for a completed session (FLNK-861):
@@ -51,7 +52,9 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
         $config = $app->make('config');
 
         return [
-            'aud' => fn (): mixed => $config->get('flink.results.audience') ?: throw MissingConfiguration::for('FLINK_RESULTS_AUDIENCE'),
+            // With an API key (FLNK-859), the key's own subject, as FLINK stamps it on the key's token.
+            'aud' => fn (): mixed => $config->get('flink.results.audience')
+                ?: ($config->get('flink.results.api_key') ? $app->make(ResultClient::class)->audience() : throw MissingConfiguration::for('FLINK_RESULTS_AUDIENCE')),
             // `aud` is the bare client id and names no journey: a result is bound to its journey here.
             'journeys' => fn (): array => self::list($config->get('flink.prefill.journeys')) ?: throw MissingConfiguration::for('FLINK_JOURNEYS'),
             // The session the caller fetched the result for, when it names one.

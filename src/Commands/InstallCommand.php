@@ -21,9 +21,10 @@ final class InstallCommand extends Command
         $variables = [
             'FLINK_TENANT_ID' => ['required', $config['tenant_id'] ?? null],
             'FLINK_JOURNEYS' => ['required for prefills and results', $config['prefill']['journeys'] ?? null],
-            'FLINK_RESULTS_AUDIENCE' => ['required for results', $config['results']['audience'] ?? null],
-            'FLINK_CLIENT_KEY' => ['only to fetch results: php artisan flink:client-key', $config['results']['client_key'] ?? null],
-            'FLINK_CLIENT_KEY_ID' => ['only to fetch results', $config['results']['client_key_id'] ?? null],
+            'FLINK_RESULTS_AUDIENCE' => ['required for results, unless FLINK_API_KEY is set', $config['results']['audience'] ?? null],
+            'FLINK_API_KEY' => ['to fetch results with a journey API key, from the journey\'s Start tab', $config['results']['api_key'] ?? null],
+            'FLINK_CLIENT_KEY' => ['or, instead of FLINK_API_KEY: php artisan flink:client-key', $config['results']['client_key'] ?? null],
+            'FLINK_CLIENT_KEY_ID' => ['with FLINK_CLIENT_KEY', $config['results']['client_key_id'] ?? null],
             'FLINK_AUDIENCE' => ['optional, defaults to APP_URL\'s origin', $config['prefill']['audience'] ?? null],
         ];
         foreach ($variables as $name => [$need, $value]) {
