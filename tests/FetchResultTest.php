@@ -155,3 +155,38 @@ it('makes a key pair: the private key for the env, the public key set for FLINK'
         ->expectsOutputToContain('"kid":"my-backend-1"')
         ->assertSuccessful();
 });
+
+it('never follows a redirect, so neither the client assertion nor the token reaches another origin', function (string $answer, int $status): void {
+    $this->{$answer} = fn (): mixed => Http::response(null, $status, ['Location' => 'https://elsewhere.test/collect']);
+    Http::fake(['https://elsewhere.test/*' => Http::response(['access_token' => 'stolen', 'signedResult' => $this->resultsJwt()])]);
+
+    expect(fn () => Flink::fetchResult(TestCase::SESSION))->toThrow(ResultUnavailable::class);
+    Http::assertNotSent(fn (Request $request): bool => $request->url() === 'https://elsewhere.test/collect');
+})->with([
+    'the token request' => ['tokenAnswer', 307],
+    'the result request' => ['resultAnswer', 302],
+]);
+
+it('refuses a client key FLINK would not accept: a curve other than P-256, or RSA under 2048 bits', function (array $options): void {
+    openssl_pkey_export(openssl_pkey_new($options), $pem);
+    config(['flink.results.client_key' => $pem]);
+
+    expect(fn () => Flink::fetchResult(TestCase::SESSION))->toThrow(MissingConfiguration::class, 'FLINK_CLIENT_KEY');
+    Http::assertNothingSent();
+})->with([
+    'P-384' => [['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'secp384r1']],
+    'RSA 1024' => [['private_key_type' => OPENSSL_KEYTYPE_RSA, 'private_key_bits' => 1024]],
+]);
+
+it('keeps a token per tenant and per FLINK url, not only per client', function (string $setting, string $value): void {
+    Flink::fetchResult(TestCase::SESSION);
+    config(["flink.{$setting}" => $value]);
+    Http::fake(['*' => Http::response(['access_token' => 'other-token', 'expires_in' => 600])]);
+
+    expect(fn () => Flink::fetchResult(TestCase::SESSION))->toThrow(ResultUnavailable::class);
+    // Faking again starts a fresh record, so a token request here means the first token was not reused.
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/client/v1/auth/token'));
+})->with([
+    'tenant' => ['tenant_id', 'b0c0c0c0-0000-4000-8000-000000000000'],
+    'url' => ['url', 'https://other-flink.test'],
+]);

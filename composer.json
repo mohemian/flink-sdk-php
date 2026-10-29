@@ -14,6 +14,7 @@
     "require": {
         "php": "^8.2",
         "ext-intl": "*",
+        "ext-openssl": "*",
         "firebase/php-jwt": "^7.0",
         "guzzlehttp/guzzle": "^7.2|^8.0",
         "illuminate/cache": "^12.0|^13.0",

@@ -140,3 +140,15 @@ it('needs no configuration for an expectation the caller supplies', function ():
     expect(Flink::verify($this->resultsJwt(), ResultsAssertion::class, ['aud' => TestCase::RP, 'journeys' => [TestCase::JOURNEY]]))->toBeInstanceOf(ResultsAssertion::class)
         ->and(Flink::verify($this->jwt([]), PrefillAssertion::class, ['journeys' => [TestCase::JOURNEY], 'reference' => TestCase::REF]))->toBeInstanceOf(PrefillAssertion::class);
 });
+
+it('refuses a result with no audience to expect, even when the claim is absent too', function (): void {
+    expect(fn () => Flink::verify($this->resultsJwt(['aud' => null]), ResultsAssertion::class, ['aud' => null, 'journeys' => [TestCase::JOURNEY]]))
+        ->toThrow(InvalidAssertion::class, 'Claim aud does not match');
+});
+
+it('refuses an ES256 result whose payload was changed after it was signed', function (): void {
+    [$header, , $signature] = explode('.', $this->resultsJwt());
+    $payload = JWT::urlsafeB64Encode(json_encode([...$this->claims([]), 'sessionId' => TestCase::SESSION, 'ver' => 1, 'tenantId' => TestCase::TENANT, 'aud' => TestCase::RP, 'journeyId' => TestCase::JOURNEY, 'attributes' => ['givenName' => ['value' => 'Mallory', 'source' => TestCase::EID]], 'sources' => []]));
+
+    expect(fn () => Flink::results("{$header}.{$payload}.{$signature}"))->toThrow(InvalidSignature::class);
+});

@@ -40,6 +40,25 @@ jobs:
       - run: vendor/bin/pest
       - run: vendor/bin/phpstan analyse --no-progress
 
+  lowest:
+    # The `^12.0` floor in composer.json: the lowest versions it allows must pass the suite too.
+    name: Lowest dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          extensions: intl, openssl
+          coverage: none
+      # Every laravel/framework 12.x below the patched release carries advisories, so composer would
+      # refuse the very versions this job exists to run. Dev-only: nothing here ships.
+      - run: composer config audit.block-insecure false
+      - run: composer update --prefer-lowest --prefer-dist --no-interaction --no-progress
+      - run: vendor/bin/pest
+
   format:
     name: Format (Rector + Pint)
     runs-on: ubuntu-latest

@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 return [
-    // Base URL of flink-services. It is the `iss` of every assertion, and the JWKS is served under it.
+    // Base URL of flink-services. It must equal FLINK's issuer: the expected `iss` of every assertion and
+    // the `aud` of the client assertion that fetches a result. The JWKS is served under it.
     'url' => env('FLINK_URL', 'https://flink-services.mohemian.rocks'),
 
     // Where FLINK's signing keys are fetched from. Defaults to the flow-results JWKS under `url`.

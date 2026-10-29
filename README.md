@@ -15,7 +15,7 @@ composer require mohemian/flink-sdk-php
 php artisan flink:install   # publishes config/flink.php and lists what is still unset
 ```
 
-PHP 8.2+ (8.3+ for Laravel 13), Laravel 12 or 13, `ext-intl`.
+PHP 8.2+ (8.3+ for Laravel 13), Laravel 12 or 13, `ext-intl`, `ext-openssl`.
 
 ```dotenv
 FLINK_TENANT_ID=…   # the console's journey page, "Start & integrate"
@@ -134,7 +134,8 @@ try {
 } catch (ResultUnavailable $e) {
     // $e->status 409: not completed yet, $e->sessionStatus says how far it is ('started', 'aborted').
     // 401 a client id or key FLINK does not hold, 400 a grant this client may not use,
-    // 403/404 a session this client may not read, 0 or 5xx an outage. Never carries the token or the key.
+    // 403 a token bound to another tenant (a wrong FLINK_TENANT_ID), a missing scope, or a session-bound token;
+    // 404 a session this client may not read. 0 or 5xx an outage. Never carries the token or the key.
 }
 ```
 
@@ -192,6 +193,11 @@ Flink::fetchResult($sessionId);                               // answered withou
   (`FLINK_CLIENT_KEY`, `FLINK_CLIENT_KEY_ID`; `php artisan flink:client-key` makes them). A client
   that reads results authenticates to FLINK with its key only; a client secret no longer works for it.
 
+- Laravel 10 and 11 are no longer supported: 0.2 needs Laravel 12 or 13.
+- An archived `flow-results+jwt` no longer verifies under 0.2: it has no class for that type, so
+  `Flink::results()` on a result you stored under 0.1 throws `InvalidAssertion`. FLINK keeps the old RS256
+  keys in its JWKS, so to re-verify archives stay on 0.1, or subclass `Assertion` (RS256, `tenant_id`) and
+  pass it to `Flink::verify()`.
 - `Flink::results()` verifies a `flink-result+jwt` (ES256) instead of a `flow-results+jwt`: read
   `attributes`, `sources`, `journeyId` and `get('givenName')` instead of `results` and
   `get('identity.givenName')`. Set `FLINK_RESULTS_AUDIENCE` to your backend's client id, and
@@ -200,6 +206,9 @@ Flink::fetchResult($sessionId);                               // answered withou
   key of exactly that algorithm.
 - `Verifier::claims()` takes the assertion class (`ResultsAssertion::class`) instead of its `typ`.
 - `Flink::fake()->results()` takes attributes (`['givenName' => ['value' => …, 'source' => …]]`).
+- `ResultsAssertion::toArray()` and `jsonSerialize()` return the `attributes` (each `{ value, source }`),
+  not `results`.
+- `FakeKeySet` is built from a list of JWKs rather than one, and `key()` takes the algorithm.
 
 ## Operations
 
