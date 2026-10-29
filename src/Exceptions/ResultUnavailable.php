@@ -3,7 +3,7 @@
 namespace Mohemian\Flink\Exceptions;
 
 /**
- * FLINK did not hand over a session's result: not ready yet (`409`, with the session's
+ * FLINK did not hand over a session's result, or its state (`Flink::fetchSession()`): not ready yet (`409`, with the session's
  * `sessionStatus`), refused (a 4xx: a wrong client id or key, a session this client may not read),
  * or an outage (`status` 0 or a 5xx). Deliberately not a FlinkException: nothing was verified, so
  * nothing was found invalid. Never carries the token, the key or FLINK's response body.

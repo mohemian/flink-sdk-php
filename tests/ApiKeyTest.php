@@ -14,6 +14,7 @@ const API_KEY = 'flk_test_0123456789abcdef';
 const KEY_SUBJECT = 'apikey:key-1';
 const KEY_TOKEN_URL = TestCase::URL.'/client/v1/auth/token';
 const KEY_RESULT_URL = TestCase::URL.'/client/v1/tenants/'.TestCase::TENANT.'/sessions/'.TestCase::SESSION.'/results';
+const KEY_SESSION_URL = TestCase::URL.'/client/v1/tenants/'.TestCase::TENANT.'/sessions/'.TestCase::SESSION;
 
 /** A token as FLINK issues it for a key: its subject is the key. Unsigned: the SDK only reads it. */
 function keyToken(?string $subject = KEY_SUBJECT): string
@@ -27,6 +28,21 @@ beforeEach(function (): void {
     $this->token = keyToken();
     $this->tokenAnswer = fn (): mixed => Http::response(['access_token' => $this->token, 'token_type' => 'Bearer', 'expires_in' => 600]);
     $this->resultAnswer = fn (): mixed => Http::response(['signedResult' => $this->resultsJwt(['aud' => KEY_SUBJECT])]);
+    $this->sessionBody = [
+        'id' => TestCase::SESSION,
+        'tenant_id' => TestCase::TENANT,
+        'template_id' => '22222222-2222-4222-8222-222222222222',
+        'status' => 'completed',
+        'steps' => [
+            ['id' => 'enrichment:email', 'completed' => true, 'started_at' => '2026-10-29T10:22:46.088Z', 'completed_at' => '2026-10-29T10:22:52.164Z'],
+            ['id' => 'consent', 'completed' => false, 'declined_at' => '2026-10-29T10:22:50.000Z'],
+        ],
+        'onboarding_candidates' => [],
+        'created_at' => '2026-10-29T10:22:45.897Z',
+        'updated_at' => '2026-10-29T10:22:52.183Z',
+        'completed_at' => '2026-10-29T10:22:52.183Z',
+    ];
+    $this->sessionAnswer = fn (): mixed => Http::response($this->sessionBody);
     Http::fake([
         KEY_TOKEN_URL => function (Request $request): mixed {
             // What flink-services checks for a key: nothing beside it, and the key itself.
@@ -42,6 +58,9 @@ beforeEach(function (): void {
         },
         KEY_RESULT_URL => fn (Request $request): mixed => $request->header('Authorization') === ['Bearer '.$this->token]
             ? ($this->resultAnswer)()
+            : Http::response(null, 403),
+        KEY_SESSION_URL => fn (Request $request): mixed => $request->header('Authorization') === ['Bearer '.$this->token]
+            ? ($this->sessionAnswer)()
             : Http::response(null, 403),
     ]);
 });
@@ -148,3 +167,76 @@ it('takes exactly one credential, and only a flk_ key, without quoting it', func
     'no flk_ prefix' => [['flink.results.api_key' => 'sk_live_secret'], 'FLINK_API_KEY'],
     'the prefix alone' => [['flink.results.api_key' => 'flk_'], 'FLINK_API_KEY'],
 ]);
+
+it("reads a session's state with the key, without its results", function (): void {
+    // services may spell the id in another case than the caller did.
+    $this->sessionBody['id'] = strtoupper(TestCase::SESSION);
+
+    $session = Flink::fetchSession(TestCase::SESSION);
+
+    expect($session->sessionId)->toBe(TestCase::SESSION)
+        ->and($session->status)->toBe('completed')
+        ->and($session->createdAt->toIso8601ZuluString('millisecond'))->toBe('2026-10-29T10:22:45.897Z')
+        ->and($session->completedAt?->toIso8601ZuluString('millisecond'))->toBe('2026-10-29T10:22:52.183Z')
+        ->and($session->steps)->toHaveCount(2)
+        ->and($session->steps[0]->id)->toBe('enrichment:email')
+        ->and($session->steps[0]->completed)->toBeTrue()
+        ->and($session->steps[0]->completedAt?->toIso8601ZuluString('millisecond'))->toBe('2026-10-29T10:22:52.164Z')
+        ->and($session->steps[1]->declinedAt)->not->toBeNull()
+        ->and($session->steps[1]->startedAt)->toBeNull();
+    Http::assertSent(fn (Request $request): bool => $request->url() === KEY_SESSION_URL
+        && $request->method() === 'GET' && ! $request->hasHeader('X-Api-Key'));
+});
+
+it('leaves completedAt empty while the session runs', function (): void {
+    $this->sessionAnswer = fn (): mixed => Http::response(['id' => TestCase::SESSION, 'status' => 'started', 'steps' => [],
+        'created_at' => '2026-10-29T10:22:45.897Z', 'updated_at' => '2026-10-29T10:22:45.897Z']);
+
+    $session = Flink::fetchSession(TestCase::SESSION);
+
+    expect($session->status)->toBe('started')->and($session->completedAt)->toBeNull()->and($session->steps)->toBe([]);
+});
+
+it('says a session of another journey, or none, is one this key may not read', function (): void {
+    $this->sessionAnswer = fn (): mixed => Http::response(['message' => 'not found'], 404);
+
+    try {
+        Flink::fetchSession(TestCase::SESSION);
+        $this->fail('no exception');
+    } catch (ResultUnavailable $e) {
+        expect($e->status)->toBe(404);
+    }
+});
+
+it('refuses an answer that is not the session it asked for', function (mixed $body): void {
+    $this->sessionAnswer = fn (): mixed => Http::response($body);
+
+    try {
+        Flink::fetchSession(TestCase::SESSION);
+        $this->fail('no exception');
+    } catch (ResultUnavailable $e) {
+        expect($e->status)->toBe(200);
+    }
+})->with([
+    'another session' => [['id' => '7d5c3a8e-0000-4000-8000-000000000002', 'status' => 'started', 'steps' => [], 'created_at' => 'x', 'updated_at' => 'x']],
+    'a step without completed' => [['id' => TestCase::SESSION, 'status' => 'started', 'steps' => [['id' => 'email']], 'created_at' => 'x', 'updated_at' => 'x']],
+    'no status' => [['id' => TestCase::SESSION, 'steps' => [], 'created_at' => 'x', 'updated_at' => 'x']],
+    'no body' => [null],
+]);
+
+it('drops a token FLINK no longer accepts on a session read, so the next one gets a new token', function () use ($tokenRequests): void {
+    $this->sessionAnswer = fn (): mixed => Http::response(null, 401);
+    expect(fn () => Flink::fetchSession(TestCase::SESSION))->toThrow(ResultUnavailable::class);
+
+    Flink::fetchResult(TestCase::SESSION);
+
+    expect($tokenRequests())->toBe(2);
+});
+
+it('needs an API key to read a session, and asks FLINK nothing without one', function (): void {
+    config(['flink.results.api_key' => null, 'flink.results.audience' => TestCase::RP,
+        'flink.results.client_key' => TestCase::key('ec1')['private'], 'flink.results.client_key_id' => 'ec1']);
+
+    expect(fn () => Flink::fetchSession(TestCase::SESSION))->toThrow(MissingConfiguration::class, 'FLINK_API_KEY');
+    Http::assertNothingSent();
+});

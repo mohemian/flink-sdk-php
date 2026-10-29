@@ -162,6 +162,20 @@ set goes to FLINK, which registers it for your client. The client token is cache
 store until shortly before it expires. A failure to hand the result over is a `ResultUnavailable`,
 deliberately not a `FlinkException`: nothing was verified, so nothing was found invalid.
 
+With an API key you can also read a session's state, without its results, to see how far it got:
+
+```php
+$session = Flink::fetchSession($sessionId);  // any session of the key's journey
+$session->status;        // 'provisioned', 'started', 'completed' or 'aborted' (final); tolerate others
+$session->steps;         // each: id, completed, startedAt, completedAt, declinedAt (null when not)
+$session->createdAt; $session->updatedAt; $session->completedAt;
+```
+
+It throws `ResultUnavailable` like `fetchResult()` (404 for a session of another journey, a test run,
+or none at all), and `MissingConfiguration` without `FLINK_API_KEY`: FLINK lets only a journey API
+key read a session it did not run. A session id is not a secret, so decide who may ask your backend
+for which session before you call either method.
+
 Fetched some other way, FLINK answers `{ "signedResult": "<jwt>" }`, and `Flink::results()` verifies
 that JWT: ES256 only (the same JWKS serves
 the prefill's RS256 key, which is refused here), header `typ` = `flink-result+jwt`, `iss` =
@@ -201,7 +215,8 @@ Flink::fetchResult($sessionId);                               // answered withou
 ## Upgrading from 0.2
 
 0.3 adds `FLINK_API_KEY`: `Flink::fetchResult()` can authenticate with a journey API key instead of
-`FLINK_CLIENT_KEY` (needs flink-services with FLNK-859). Nothing changes for a client key. A custom
+`FLINK_CLIENT_KEY` (needs flink-services with FLNK-859), and `Flink::fetchSession()` reads a
+session's state with it. Nothing changes for a client key. A custom
 binding that constructs `ResultClient` itself: its client id, key and kid are nullable now, and the
 API key is a new last argument.
 

@@ -15,6 +15,7 @@ use Mohemian\Flink\Exceptions\InvalidSignature;
 use Mohemian\Flink\Exceptions\KeysUnavailable;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
 use Mohemian\Flink\Exceptions\ResultUnavailable;
+use Mohemian\Flink\Results\FlowSession;
 use Mohemian\Flink\Results\ResultClient;
 use Mohemian\Flink\Verification\Verifier;
 
@@ -59,6 +60,18 @@ final readonly class Flink
     public function fetchResult(string $sessionId): ResultsAssertion
     {
         return $this->results($this->app->make(ResultClient::class)->signedResult($sessionId), $sessionId);
+    }
+
+    /**
+     * A session's state, without its results, as a journey API key reads it (FLNK-859): any session
+     * of the key's journey, whoever started it. Needs `FLINK_API_KEY`.
+     *
+     * @throws ResultUnavailable 404 a session of another journey or none at all, or FLINK unreachable
+     * @throws MissingConfiguration
+     */
+    public function fetchSession(string $sessionId): FlowSession
+    {
+        return $this->app->make(ResultClient::class)->session($sessionId);
     }
 
     /**

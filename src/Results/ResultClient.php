@@ -81,13 +81,7 @@ final readonly class ResultClient
      */
     public function signedResult(string $sessionId): string
     {
-        $response = $this->send('result', fn (): Response => $this->http->timeout(10)->withoutRedirecting()
-            ->withToken($this->token())
-            ->get("{$this->url}/client/v1/tenants/{$this->tenantId}/sessions/".rawurlencode($sessionId).'/results'));
-        if ($response->status() === 401) {
-            // Revoked or its signing key rotated before it expired: the next call fetches another.
-            $this->cache->forget($this->cacheKey);
-        }
+        $response = $this->get('result', '/'.rawurlencode($sessionId).'/results');
         if ($response->status() === 409) {
             $status = $response->json('status');
             throw ResultUnavailable::notReady(is_string($status) ? $status : null);
@@ -98,6 +92,46 @@ final readonly class ResultClient
         }
 
         return $signed;
+    }
+
+    /**
+     * A session's state, read with a journey API key's token (FLNK-859): FLINK lets a key read any
+     * session of its journey, and a client id none it is not bound to.
+     *
+     * @throws ResultUnavailable
+     * @throws MissingConfiguration
+     */
+    public function session(string $sessionId): FlowSession
+    {
+        if ($this->apiKey === null) {
+            throw new MissingConfiguration('Set FLINK_API_KEY: only a journey API key reads a session it did not run');
+        }
+        $response = $this->get('session', '/'.rawurlencode($sessionId));
+        if (! $response->ok()) {
+            throw ResultUnavailable::answered('session', $response->status());
+        }
+
+        return FlowSession::fromResponse($response->json(), $sessionId)
+            ?? throw new ResultUnavailable('FLINK answered the session request with something other than that session', 200);
+    }
+
+    /**
+     * A GET under this tenant's sessions, with the client token.
+     *
+     * @throws ResultUnavailable
+     * @throws MissingConfiguration
+     */
+    private function get(string $step, string $path): Response
+    {
+        $response = $this->send($step, fn (): Response => $this->http->timeout(10)->withoutRedirecting()
+            ->withToken($this->token())
+            ->get("{$this->url}/client/v1/tenants/{$this->tenantId}/sessions{$path}"));
+        if ($response->status() === 401) {
+            // Revoked or its signing key rotated before it expired: the next call fetches another.
+            $this->cache->forget($this->cacheKey);
+        }
+
+        return $response;
     }
 
     private function token(): string
