@@ -115,6 +115,12 @@ it('takes FLINK_RESULTS_AUDIENCE when it is set, without asking FLINK', function
     Http::assertNotSent(fn (Request $request): bool => $request->url() === KEY_TOKEN_URL);
 });
 
+it('refuses a client id left in FLINK_RESULTS_AUDIENCE from 0.2 rather than every result', function (): void {
+    config(['flink.results.audience' => TestCase::RP]);
+
+    Flink::results($this->resultsJwt(['aud' => KEY_SUBJECT]));
+})->throws(MissingConfiguration::class, 'Unset FLINK_RESULTS_AUDIENCE');
+
 it('verifies nothing when the token names no key as its subject', function (?string $subject): void {
     $this->token = keyToken($subject);
 

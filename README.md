@@ -216,7 +216,9 @@ Flink::fetchResult($sessionId);                               // answered withou
 
 0.3 adds `FLINK_API_KEY`: `Flink::fetchResult()` can authenticate with a journey API key instead of
 `FLINK_CLIENT_KEY` (needs flink-services with FLNK-859), and `Flink::fetchSession()` reads a
-session's state with it. Nothing changes for a client key. A custom
+session's state with it. Nothing changes for a client key. To switch to an API key, set
+`FLINK_API_KEY` and remove `FLINK_CLIENT_KEY` and `FLINK_RESULTS_AUDIENCE` (the audience is the key's
+subject then; a leftover client id throws `MissingConfiguration`). A custom
 binding that constructs `ResultClient` itself: its client id, key and kid are nullable now, and the
 API key is a new last argument.
 
