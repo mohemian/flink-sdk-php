@@ -6,6 +6,7 @@ use Firebase\JWT\BeforeValidException;
 use Firebase\JWT\ExpiredException;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Mohemian\Flink\Assertions\Assertion;
 use Mohemian\Flink\Contracts\KeySet;
 use Mohemian\Flink\Exceptions\FlinkException;
 use Mohemian\Flink\Exceptions\InvalidAssertion;
@@ -13,9 +14,10 @@ use Mohemian\Flink\Exceptions\InvalidSignature;
 use Mohemian\Flink\Exceptions\KeysUnavailable;
 
 /**
- * What every FLINK assertion shares: an RS256 signature by a key in FLINK's JWKS, chosen by `kid`;
- * the `typ` the caller expects, so one assertion type is never accepted as another; FLINK as `iss`;
- * your tenant. Everything type-specific is the assertion class's to check.
+ * What every FLINK assertion shares: a signature by a key in FLINK's JWKS, chosen by `kid`, in the
+ * one algorithm the assertion type is signed with (the JWKS serves keys of more than one); the `typ`
+ * the caller expects, so one assertion type is never accepted as another; FLINK as `iss`; your
+ * tenant. Everything type-specific is the assertion class's to check.
  */
 final readonly class Verifier
 {
@@ -29,20 +31,26 @@ final readonly class Verifier
     ) {}
 
     /**
+     * @param  class-string<Assertion>  $assertion
      * @return array<string, mixed> the verified claims
      *
      * @throws FlinkException
      * @throws KeysUnavailable
      */
-    public function claims(string $jwt, string $type): array
+    public function claims(string $jwt, string $assertion): array
     {
-        $header = $this->header($jwt);
-        if (($header['typ'] ?? null) !== $type) {
-            throw InvalidAssertion::wrongType($type);
+        $alg = $assertion::algorithm();
+        $header = $this->header($jwt, $alg);
+        if (($header['typ'] ?? null) !== $assertion::type()) {
+            throw InvalidAssertion::wrongType($assertion::type());
+        }
+        // After the typ, so a token of another kind is named as such rather than as a bad algorithm.
+        if ($header['alg'] !== $alg) {
+            throw InvalidSignature::malformed($alg);
         }
 
         try {
-            $payload = $this->decode($jwt, $this->keys->key($header['kid']));
+            $payload = $this->decode($jwt, $this->keys->key($header['kid'], $alg));
         } catch (ExpiredException) {
             throw InvalidAssertion::expired();
         } catch (BeforeValidException) {
@@ -54,7 +62,7 @@ final readonly class Verifier
 
         /** @var array<string, mixed> $claims */
         $claims = json_decode((string) json_encode($payload), true);
-        foreach (['iss' => $this->issuer, 'tenant_id' => $this->tenantId] as $claim => $value) {
+        foreach (['iss' => $this->issuer, $assertion::tenantClaim() => $this->tenantId] as $claim => $value) {
             if (($claims[$claim] ?? null) !== $value) {
                 throw InvalidAssertion::mismatch($claim);
             }
@@ -78,8 +86,8 @@ final readonly class Verifier
         }
     }
 
-    /** @return array{alg: 'RS256', kid: string, typ?: mixed} */
-    private function header(string $jwt): array
+    /** @return array{alg: string, kid: string, typ?: mixed} */
+    private function header(string $jwt, string $alg): array
     {
         $parts = explode('.', $jwt);
         try {
@@ -87,8 +95,8 @@ final readonly class Verifier
         } catch (\Throwable) {
             $header = null;
         }
-        if (! is_array($header) || ($header['alg'] ?? null) !== 'RS256' || ! is_string($header['kid'] ?? null)) {
-            throw InvalidSignature::malformed();
+        if (! is_array($header) || ! is_string($header['alg'] ?? null) || ! is_string($header['kid'] ?? null)) {
+            throw InvalidSignature::malformed($alg);
         }
 
         return $header;

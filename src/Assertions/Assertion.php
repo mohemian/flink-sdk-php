@@ -9,13 +9,25 @@ use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
 
 /**
- * One kind of FLINK assertion. The shared checks (signature, `typ`, `iss`, tenant) run before
+ * One kind of FLINK assertion. The shared checks (signature, algorithm, `typ`, `iss`, tenant) run before
  * `fromClaims()`; a subclass checks only what is specific to its type and returns itself.
  */
 abstract class Assertion
 {
     /** The JWS `typ` header this kind of assertion carries. */
     abstract public static function type(): string;
+
+    /** The one algorithm FLINK signs this kind with: the prefill RS256, the results ES256. */
+    public static function algorithm(): string
+    {
+        return 'RS256';
+    }
+
+    /** The claim naming FLINK's tenant. */
+    public static function tenantClaim(): string
+    {
+        return 'tenant_id';
+    }
 
     /**
      * What the claims must match by default, read from config (and, for a prefill, the session).
@@ -81,5 +93,17 @@ abstract class Assertion
     protected static function intClaim(array $claims, string $claim): int
     {
         return is_int($claims[$claim] ?? null) ? $claims[$claim] : throw InvalidAssertion::missing($claim);
+    }
+
+    /**
+     * `FLINK_JOURNEYS` is a comma-separated string; a published config may hold an array instead.
+     *
+     * @return list<string>
+     */
+    protected static function list(mixed $journeys): array
+    {
+        $list = is_array($journeys) ? $journeys : explode(',', (string) $journeys);
+
+        return array_values(array_filter(array_map(fn ($journey): string => trim((string) $journey), $list), fn (string $journey): bool => $journey !== ''));
     }
 }

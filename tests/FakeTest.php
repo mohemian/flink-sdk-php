@@ -8,6 +8,15 @@ use Mohemian\Flink\Exceptions\InvalidSignature;
 use Mohemian\Flink\Facades\Flink;
 use Mohemian\Flink\Tests\TestCase;
 
+it('serves fetchResult without reaching FLINK or needing a client key', function (): void {
+    Flink::fake()->serveResults(['givenName' => ['value' => 'Max', 'source' => TestCase::EID]]);
+
+    $results = Flink::fetchResult(TestCase::SESSION);
+
+    expect($results->get('givenName'))->toBe('Max')->and($results->sessionId)->toBe(TestCase::SESSION);
+    Http::assertNotSent(fn ($request): bool => ! str_starts_with($request->url(), TestCase::URL.'/client/v1/'));
+});
+
 it('signs prefills the app verifies, without reaching FLINK', function (): void {
     $fake = Flink::fake();
 
@@ -32,9 +41,9 @@ it('lets a test override or drop claims to build a rejection', function (): void
 });
 
 it('signs results assertions too', function (): void {
-    $jwt = Flink::fake()->results(['identity' => ['givenName' => 'Max']]);
+    $jwt = Flink::fake()->results(['givenName' => ['value' => 'Max', 'source' => 'urn:flink:source:eid:oidc']]);
 
-    expect(Flink::results($jwt)->get('identity.givenName'))->toBe('Max');
+    expect(Flink::results($jwt)->get('givenName'))->toBe('Max');
 });
 
 it('no longer accepts tokens signed by the real keys once faked', function (): void {
@@ -49,8 +58,8 @@ it('needs no configuration for a claim the test supplies', function (): void {
     $fake = Flink::fake();
 
     $prefill = $fake->prefill(claims: ['journey' => 'J1']);
-    $results = $fake->results(claims: ['aud' => 'rp']);
+    $results = $fake->results(claims: ['aud' => 'rp', 'journeyId' => 'J1']);
 
     expect(Flink::verify($prefill, PrefillAssertion::class, ['journeys' => ['J1']])->journey)->toBe('J1')
-        ->and(Flink::verify($results, ResultsAssertion::class, ['aud' => 'rp'])->sessionId)->toBeString();
+        ->and(Flink::verify($results, ResultsAssertion::class, ['aud' => 'rp', 'journeys' => ['J1']])->sessionId)->toBeString();
 });

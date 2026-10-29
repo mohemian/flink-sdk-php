@@ -12,7 +12,7 @@ use Mohemian\Flink\Contracts\KeySet;
 use Mohemian\Flink\Exceptions\InvalidSignature;
 use Mohemian\Flink\Exceptions\KeysUnavailable;
 
-/** FLINK's flow-results keys, cached for `$ttl` (the endpoint's max-age), refetched on an unknown kid. */
+/** FLINK's signing keys (the flow-results JWKS: RS256 and ES256), cached for `$ttl` (the endpoint's max-age), refetched on an unknown kid. */
 final readonly class JwksKeySet implements KeySet
 {
     public function __construct(
@@ -23,7 +23,7 @@ final readonly class JwksKeySet implements KeySet
         private int $ttl,
     ) {}
 
-    public function key(string $kid): Key
+    public function key(string $kid, string $alg): Key
     {
         $keys = $this->cache->remember($this->cacheKey, $this->ttl, fn (): array => $this->fetch());
         // An unknown kid is either a rotation or junk: refetch, but at most once a minute.
@@ -36,8 +36,8 @@ final readonly class JwksKeySet implements KeySet
         }
 
         $key = JWK::parseKey($keys[$kid]);
-        if (! $key instanceof Key || $key->getAlgorithm() !== 'RS256') {
-            throw InvalidSignature::unsupportedKey($kid);
+        if (! $key instanceof Key || $key->getAlgorithm() !== $alg) {
+            throw InvalidSignature::unsupportedKey($kid, $alg);
         }
 
         return $key;

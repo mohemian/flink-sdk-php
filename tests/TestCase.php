@@ -30,7 +30,7 @@ abstract class TestCase extends Orchestra
     /** @var array<string, array{private: string, jwk: array<string, string>}> */
     private static array $keys = [];
 
-    /** @var list<list<string>> kids the JWKS endpoint serves, one list per fetch; then just k1 */
+    /** @var list<list<string>> kids the JWKS endpoint serves, one list per fetch; then k1 and e1 */
     public array $served = [];
 
     /** @var list<mixed> raw JWKS response bodies, one per fetch, served before `$served` */
@@ -60,7 +60,7 @@ abstract class TestCase extends Orchestra
     {
         parent::setUp();
         Http::fake([self::JWKS => fn () => $this->bodies !== [] ? Http::response(array_shift($this->bodies)) : Http::response([
-            'keys' => array_map(fn (string $kid): array => self::key($kid)['jwk'], array_shift($this->served) ?? ['k1']),
+            'keys' => array_map(fn (string $kid): array => self::key($kid)['jwk'], array_shift($this->served) ?? ['k1', 'e1']),
         ])]);
     }
 
@@ -106,12 +106,15 @@ abstract class TestCase extends Orchestra
         );
     }
 
+    public const EID = 'urn:flink:source:eid:oidc';
+
     /**
-     * A `flow-results+jwt` as flink-services signs it: no `exp`, `results` instead of `data`.
+     * A `flink-result+jwt` as flink-services signs it (FLNK-861): ES256, no `exp`, camelCase claims,
+     * flat attributes with their sources.
      *
      * @param  array<string, mixed>  $claims  null removes the claim
      */
-    public function resultsJwt(array $claims = [], string $typ = 'flow-results+jwt'): string
+    public function resultsJwt(array $claims = [], string $typ = 'flink-result+jwt', string $kid = 'e1'): string
     {
         $claims = array_filter(array_merge([
             'iss' => self::URL,
@@ -119,17 +122,27 @@ abstract class TestCase extends Orchestra
             'iat' => time(),
             'jti' => 'r1',
             'ver' => 1,
-            'tenant_id' => self::TENANT,
-            'session_id' => self::SESSION,
-            'results' => ['identity' => ['givenName' => 'Erika']],
+            'tenantId' => self::TENANT,
+            'sessionId' => self::SESSION,
+            'journeyId' => self::JOURNEY,
+            'completedAt' => '2026-10-20T08:30:00.000Z',
+            'attributes' => [
+                'givenName' => ['value' => 'Erika', 'source' => self::EID],
+                'address' => ['value' => ['locality' => 'Wien'], 'source' => self::EID],
+            ],
+            'sources' => [self::EID => ['obtainedAt' => '2026-10-20T08:30:00.000Z']],
         ], $claims), fn ($v): bool => $v !== null);
 
-        return JWT::encode($claims, self::key('k1')['private'], 'RS256', 'k1', ['typ' => $typ]);
+        return JWT::encode($claims, self::key($kid)['private'], self::key($kid)['jwk']['alg'], $kid, ['typ' => $typ]);
     }
 
-    /** @return array{private: string, jwk: array<string, string>} */
+    /**
+     * A key FLINK serves: `e…` kids are ES256 (the results key), every other kid RS256 (the prefill).
+     *
+     * @return array{private: string, jwk: array<string, string>}
+     */
     public static function key(string $kid): array
     {
-        return self::$keys[$kid] ??= KeyPair::generate($kid);
+        return self::$keys[$kid] ??= KeyPair::generate($kid, str_starts_with($kid, 'e') ? 'ES256' : 'RS256');
     }
 }

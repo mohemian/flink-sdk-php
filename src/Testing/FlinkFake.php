@@ -4,6 +4,8 @@ namespace Mohemian\Flink\Testing;
 
 use Firebase\JWT\JWT;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Mohemian\Flink\Assertions\PrefillAssertion;
 use Mohemian\Flink\Assertions\ResultsAssertion;
@@ -18,15 +20,22 @@ final readonly class FlinkFake
 {
     private const KID = 'flink-fake';
 
+    /** The results key's kid (FLNK-861): FLINK signs results ES256, beside the prefill's RS256 key. */
+    private const RESULTS_KID = 'flink-fake-results';
+
     public FakeKeySet $keys;
 
     private string $privateKey;
 
+    private string $resultsKey;
+
     public function __construct(private Container $app)
     {
         $pair = KeyPair::generate(self::KID);
+        $results = KeyPair::generate(self::RESULTS_KID, 'ES256');
         $this->privateKey = $pair['private'];
-        $this->keys = new FakeKeySet($pair['jwk']);
+        $this->resultsKey = $results['private'];
+        $this->keys = new FakeKeySet([$pair['jwk'], $results['jwk']]);
     }
 
     /**
@@ -49,14 +58,67 @@ final readonly class FlinkFake
     }
 
     /**
-     * @param  array<string, mixed>  $results
+     * A result as flink-services signs it (FLNK-861): ES256, camelCase claims, flat attributes.
+     *
+     * @param  array<string, array{value: mixed, source: string, derivedAsOf?: string}>  $attributes
      * @param  array<string, mixed>  $claims
      */
-    public function results(array $results = [], array $claims = []): string
+    public function results(array $attributes = [], array $claims = []): string
     {
-        return $this->sign(ResultsAssertion::type(), $claims + $this->defaults($claims, [
-            'aud' => ResultsAssertion::expectations($this->app)['aud'],
-        ]) + ['results' => $results]);
+        $verifier = $this->app->make(Verifier::class);
+        $sources = [];
+        foreach ($attributes as $attribute) {
+            $sources[$attribute['source']] = ['obtainedAt' => gmdate('Y-m-d\\TH:i:s.000\\Z')];
+        }
+        $default = ResultsAssertion::expectations($this->app);
+        $claims += $this->defaults($claims, [
+            'aud' => $default['aud'],
+            'journeyId' => fn (): mixed => $default['journeys']()[0],
+        ]) + [
+            'iss' => $verifier->issuer,
+            'iat' => time(),
+            'jti' => (string) Str::uuid(),
+            'ver' => 1,
+            'tenantId' => $verifier->tenantId,
+            'sessionId' => (string) Str::uuid(),
+            'completedAt' => gmdate('Y-m-d\\TH:i:s.000\\Z'),
+            'attributes' => $attributes,
+            'sources' => (object) $sources,
+        ];
+
+        return JWT::encode(
+            array_filter($claims, fn ($v): bool => $v !== null),
+            $this->resultsKey,
+            'ES256',
+            self::RESULTS_KID,
+            ['typ' => ResultsAssertion::type()]
+        );
+    }
+
+    /**
+     * Answer `Flink::fetchResult()` as FLINK would, without reaching it: the token endpoint and the
+     * results endpoint are faked (`Http::fake`), each fetched session gets a result with these
+     * attributes, and a client key is made for the test when none is configured.
+     *
+     * @param  array<string, array{value: mixed, source: string, derivedAsOf?: string}>  $attributes
+     * @param  array<string, mixed>  $claims
+     */
+    public function serveResults(array $attributes = [], array $claims = []): void
+    {
+        $config = $this->app->make('config');
+        if (! $config->get('flink.results.client_key')) {
+            $config->set([
+                'flink.results.client_key' => KeyPair::generate('flink-fake-client', 'ES256')['private'],
+                'flink.results.client_key_id' => 'flink-fake-client',
+            ]);
+        }
+        $url = $this->app->make(Verifier::class)->issuer;
+        Http::fake([
+            "{$url}/client/v1/auth/token" => Http::response(['access_token' => 'flink-fake-token', 'token_type' => 'Bearer', 'expires_in' => 600]),
+            "{$url}/client/v1/tenants/*/sessions/*/results" => fn (Request $request): mixed => Http::response([
+                'signedResult' => $this->results($attributes, $claims + ['sessionId' => rawurldecode(explode('/', (string) parse_url($request->url(), PHP_URL_PATH))[6] ?? '')]),
+            ]),
+        ]);
     }
 
     /**
