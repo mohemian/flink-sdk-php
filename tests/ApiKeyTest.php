@@ -227,6 +227,9 @@ it('refuses an answer that is not the session it asked for', function (mixed $bo
     'another session' => [['id' => '7d5c3a8e-0000-4000-8000-000000000002', 'status' => 'started', 'steps' => [], 'created_at' => 'x', 'updated_at' => 'x']],
     'a step without completed' => [['id' => TestCase::SESSION, 'status' => 'started', 'steps' => [['id' => 'email']], 'created_at' => 'x', 'updated_at' => 'x']],
     'no status' => [['id' => TestCase::SESSION, 'steps' => [], 'created_at' => 'x', 'updated_at' => 'x']],
+    'a malformed created_at' => [['id' => TestCase::SESSION, 'status' => 'started', 'steps' => [], 'created_at' => 'not-a-date-999', 'updated_at' => '2026-10-29T10:22:45.897Z']],
+    'a malformed step time' => [['id' => TestCase::SESSION, 'status' => 'started', 'steps' => [['id' => 'email', 'completed' => true, 'completed_at' => 'not-a-date-999']], 'created_at' => '2026-10-29T10:22:45.897Z', 'updated_at' => '2026-10-29T10:22:45.897Z']],
+    'a malformed completed_at' => [['id' => TestCase::SESSION, 'status' => 'completed', 'steps' => [], 'created_at' => '2026-10-29T10:22:45.897Z', 'updated_at' => '2026-10-29T10:22:45.897Z', 'completed_at' => 'not-a-date-999']],
     'no body' => [null],
 ]);
 
