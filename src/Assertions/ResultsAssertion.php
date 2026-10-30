@@ -7,6 +7,7 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Support\Arrayable;
 use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
+use Mohemian\Flink\Results\ResultClient;
 
 /**
  * The `flink-result+jwt` a relying party's backend fetches for a completed session (FLNK-861):
@@ -51,7 +52,19 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
         $config = $app->make('config');
 
         return [
-            'aud' => fn (): mixed => $config->get('flink.results.audience') ?: throw MissingConfiguration::for('FLINK_RESULTS_AUDIENCE'),
+            // With an API key (FLNK-859), the key's own subject, as FLINK stamps it on the key's token.
+            'aud' => function () use ($app, $config): mixed {
+                $audience = $config->get('flink.results.audience');
+                if (! $config->get('flink.results.api_key')) {
+                    return $audience ?: throw MissingConfiguration::for('FLINK_RESULTS_AUDIENCE');
+                }
+                // A client id left over from 0.2 is not the key's subject: refuse it rather than every result.
+                if ($audience && ! str_starts_with((string) $audience, 'apikey:')) {
+                    throw new MissingConfiguration('Unset FLINK_RESULTS_AUDIENCE: with FLINK_API_KEY the audience is the key\'s subject (apikey:<id>), not a client id');
+                }
+
+                return $audience ?: $app->make(ResultClient::class)->audience();
+            },
             // `aud` is the bare client id and names no journey: a result is bound to its journey here.
             'journeys' => fn (): array => self::list($config->get('flink.prefill.journeys')) ?: throw MissingConfiguration::for('FLINK_JOURNEYS'),
             // The session the caller fetched the result for, when it names one.

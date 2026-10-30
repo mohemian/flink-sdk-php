@@ -63,3 +63,13 @@ it('needs no configuration for a claim the test supplies', function (): void {
     expect(Flink::verify($prefill, PrefillAssertion::class, ['journeys' => ['J1']])->journey)->toBe('J1')
         ->and(Flink::verify($results, ResultsAssertion::class, ['aud' => 'rp', 'journeys' => ['J1']])->sessionId)->toBeString();
 });
+
+it('serves results with a journey API key, signed for the fake key\'s subject', function (): void {
+    config(['flink.results.api_key' => 'flk_test', 'flink.results.audience' => null]);
+    Flink::fake()->serveResults(['givenName' => ['value' => 'Max', 'source' => TestCase::EID]]);
+
+    $results = Flink::fetchResult(TestCase::SESSION);
+
+    expect($results->get('givenName'))->toBe('Max');
+    Http::assertSent(fn ($request): bool => $request->header('X-Api-Key') === ['flk_test']);
+});

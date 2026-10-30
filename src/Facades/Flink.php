@@ -10,6 +10,7 @@ use Mohemian\Flink\Testing\FlinkFake;
  * @method static \Mohemian\Flink\Assertions\PrefillAssertion prefill(mixed $jwt, ?string $reference = null)
  * @method static \Mohemian\Flink\Assertions\ResultsAssertion results(mixed $jwt, ?string $sessionId = null)
  * @method static \Mohemian\Flink\Assertions\ResultsAssertion fetchResult(string $sessionId)
+ * @method static \Mohemian\Flink\Results\FlowSession fetchSession(string $sessionId)
  * @method static \Mohemian\Flink\Assertions\Assertion verify(mixed $jwt, string $type, array<string, mixed> $expected = [])
  * @method static string reference()
  * @method static string|null currentReference()

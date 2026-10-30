@@ -38,6 +38,21 @@ final class FlinkServiceProvider extends ServiceProvider
             $config = $app['config']['flink'];
             $url = $this->url($config);
             $tenantId = (string) ($config['tenant_id'] ?: throw MissingConfiguration::for('FLINK_TENANT_ID'));
+            // Per FLINK, tenant and client: apps sharing a cache store (stage and production on one
+            // Redis) must never pick up each other's token.
+            $cacheKey = fn (string $client): string => ($config['cache']['key'] ?? 'flink:jwks').':client-token:'.hash('sha256', "{$url}|{$tenantId}|{$client}");
+            $apiKey = ($config['results']['api_key'] ?? null) ?: null;
+            if ($apiKey !== null) {
+                // Two credentials would leave it unclear which one FLINK should hold the backend to.
+                if (($config['results']['client_key'] ?? null) ?: null) {
+                    throw new MissingConfiguration('Set either FLINK_API_KEY or FLINK_CLIENT_KEY, not both');
+                }
+                if (! is_string($apiKey) || ! str_starts_with($apiKey, 'flk_') || strlen($apiKey) === 4) {
+                    throw new MissingConfiguration("Set FLINK_API_KEY to the flk_… key from the journey's Start tab in the console");
+                }
+
+                return new ResultClient($app->make(Http::class), $app['cache']->store($config['cache']['store'] ?? null), $url, $tenantId, null, null, null, $cacheKey('key:'.$apiKey), $apiKey);
+            }
             $clientId = (string) (($config['results']['audience'] ?? null) ?: throw MissingConfiguration::for('FLINK_RESULTS_AUDIENCE'));
 
             return new ResultClient(
@@ -48,9 +63,7 @@ final class FlinkServiceProvider extends ServiceProvider
                 $clientId,
                 (string) (($config['results']['client_key'] ?? null) ?: throw MissingConfiguration::for('FLINK_CLIENT_KEY')),
                 (string) (($config['results']['client_key_id'] ?? null) ?: throw MissingConfiguration::for('FLINK_CLIENT_KEY_ID')),
-                // Per FLINK, tenant and client: apps sharing a cache store (stage and production on
-                // one Redis) must never pick up each other's token.
-                ($config['cache']['key'] ?? 'flink:jwks').':client-token:'.hash('sha256', "{$url}|{$tenantId}|{$clientId}"),
+                $cacheKey($clientId),
             );
         });
         $this->app->singleton(Flink::class, fn ($app): Flink => new Flink($app));
