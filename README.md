@@ -177,8 +177,9 @@ key read a session it did not run. A session id is not a secret, so decide who m
 for which session before you call either method.
 
 To let a person pick their country and eID on your own page before any FLINK screen, read the
-journey's countries (FLNK-1181; needs flink-services with it). It works with either credential and
-starts no session:
+journey's countries (FLNK-1181; needs flink-services with it). It starts no session. FLINK requires the `flow-session:write` scope
+for it, so a `private_key_jwt` client must be registered with that scope. A results-only client
+lacks it and gets `403`:
 
 ```php
 $read = Flink::fetchCountries($journey);   // the journey's public id

@@ -75,5 +75,6 @@ it('refuses an answer that is not a countries answer', function (mixed $body): v
     'no countries' => [['country_labels' => []]],
     'a country with no eID list' => [['countries' => [['country' => 'se']], 'country_labels' => []]],
     'an eID with no English label' => [['countries' => [['country' => 'se', 'eids' => [['id' => 1, 'label' => [], 'kind' => 'redirect']]]]]],
+    'an eID whose id is a string' => [['countries' => [['country' => 'se', 'eids' => [['id' => '41', 'label' => ['en' => 'Freja'], 'kind' => 'redirect']]]]]],
     'no body' => [null],
 ]);
