@@ -176,6 +176,25 @@ or none at all), and `MissingConfiguration` without `FLINK_API_KEY`: FLINK lets 
 key read a session it did not run. A session id is not a secret, so decide who may ask your backend
 for which session before you call either method.
 
+To let a person pick their country and eID on your own page before any FLINK screen, read the
+journey's countries (FLNK-1181; needs flink-services with it). It works with either credential and
+starts no session:
+
+```php
+$read = Flink::fetchCountries($journey);   // the journey's public id
+foreach ($read->countries as $country) {   // the journey's order, its primary market first
+    $country->country;                     // 'se', or a test market 'se-test'
+    $country->eids;                        // each: id, label (per locale, always 'en'), logoUri, kind
+}
+$read->countryLabels;                      // FLINK's own country names, keyed 'XA'; otherwise use your locale data
+```
+
+It is what FLINK's own web flow offers for the journey: every country it covers, each with the eIDs a
+session there offers (none for a document-only country). FLINK can withdraw an eID without the
+journey changing, so read it when you render the choice. It throws `ResultUnavailable` like
+`fetchResult()`: 404 for a journey that does not exist, 403 for one your credential may not read (an
+API key reads only its own journey).
+
 Fetched some other way, FLINK answers `{ "signedResult": "<jwt>" }`, and `Flink::results()` verifies
 that JWT: ES256 only (the same JWKS serves
 the prefill's RS256 key, which is refused here), header `typ` = `flink-result+jwt`, `iss` =

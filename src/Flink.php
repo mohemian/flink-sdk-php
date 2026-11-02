@@ -16,6 +16,7 @@ use Mohemian\Flink\Exceptions\KeysUnavailable;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
 use Mohemian\Flink\Exceptions\ResultUnavailable;
 use Mohemian\Flink\Results\FlowSession;
+use Mohemian\Flink\Results\JourneyCountries;
 use Mohemian\Flink\Results\ResultClient;
 use Mohemian\Flink\Verification\Verifier;
 
@@ -72,6 +73,19 @@ final readonly class Flink
     public function fetchSession(string $sessionId): FlowSession
     {
         return $this->app->make(ResultClient::class)->session($sessionId);
+    }
+
+    /**
+     * The countries a journey covers and, in each, the eIDs a person can choose: what FLINK's own web
+     * flow offers, read before any session, so your page can ask first (FLNK-1181). With either
+     * credential. Read it when you render the choice: FLINK withdraws an eID without the journey changing.
+     *
+     * @throws ResultUnavailable 404 a journey that does not exist, 403 one this credential may not read, or FLINK unreachable
+     * @throws MissingConfiguration
+     */
+    public function fetchCountries(string $journey): JourneyCountries
+    {
+        return $this->app->make(ResultClient::class)->countries($journey);
     }
 
     /**
