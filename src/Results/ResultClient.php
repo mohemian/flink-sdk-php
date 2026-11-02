@@ -81,7 +81,7 @@ final readonly class ResultClient
      */
     public function signedResult(string $sessionId): string
     {
-        $response = $this->get('result', '/'.rawurlencode($sessionId).'/results');
+        $response = $this->get('result', $this->tenantPath().'/sessions/'.rawurlencode($sessionId).'/results');
         if ($response->status() === 409) {
             $status = $response->json('status');
             throw ResultUnavailable::notReady(is_string($status) ? $status : null);
@@ -106,7 +106,7 @@ final readonly class ResultClient
         if ($this->apiKey === null) {
             throw new MissingConfiguration('Set FLINK_API_KEY: only a journey API key reads a session it did not run');
         }
-        $response = $this->get('session', '/'.rawurlencode($sessionId));
+        $response = $this->get('session', $this->tenantPath().'/sessions/'.rawurlencode($sessionId));
         if (! $response->ok()) {
             throw ResultUnavailable::answered('session', $response->status());
         }
@@ -116,7 +116,27 @@ final readonly class ResultClient
     }
 
     /**
-     * A GET under this tenant's sessions, with the client token.
+     * A journey's countries and the eIDs it offers in each (FLNK-1181). FLINK requires the
+     * `flow-session:write` scope for it, so a `private_key_jwt` client must be registered with that scope;
+     * a results-only client lacks it and gets 403. A key reads its own journey, a client id any journey
+     * of its tenant.
+     *
+     * @throws ResultUnavailable 403 a client without `flow-session:write`, 404 a journey that does not exist or this credential may not read
+     * @throws MissingConfiguration
+     */
+    public function countries(string $journey): JourneyCountries
+    {
+        $response = $this->get('countries', '/journeys/'.rawurlencode($journey).'/countries');
+        if (! $response->ok()) {
+            throw ResultUnavailable::answered('countries', $response->status());
+        }
+
+        return JourneyCountries::fromResponse($response->json())
+            ?? throw new ResultUnavailable('FLINK answered the countries request with something other than countries', 200);
+    }
+
+    /**
+     * A GET under FLINK's client API, with the client token.
      *
      * @throws ResultUnavailable
      * @throws MissingConfiguration
@@ -125,13 +145,18 @@ final readonly class ResultClient
     {
         $response = $this->send($step, fn (): Response => $this->http->timeout(10)->withoutRedirecting()
             ->withToken($this->token())
-            ->get("{$this->url}/client/v1/tenants/{$this->tenantId}/sessions{$path}"));
+            ->get("{$this->url}/client/v1{$path}"));
         if ($response->status() === 401) {
             // Revoked or its signing key rotated before it expired: the next call fetches another.
             $this->cache->forget($this->cacheKey);
         }
 
         return $response;
+    }
+
+    private function tenantPath(): string
+    {
+        return "/tenants/{$this->tenantId}";
     }
 
     private function token(): string
