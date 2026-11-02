@@ -9,7 +9,7 @@ use Mohemian\Flink\Tests\TestCase;
 
 // A journey's countries and the eIDs it offers in each (FLNK-1181).
 const COUNTRIES_TOKEN_URL = TestCase::URL.'/client/v1/auth/token';
-const COUNTRIES_URL = TestCase::URL.'/client/v1/tenants/'.TestCase::TENANT.'/templates/'.TestCase::JOURNEY.'/countries';
+const COUNTRIES_URL = TestCase::URL.'/client/v1/journeys/'.TestCase::JOURNEY.'/countries';
 
 beforeEach(function (): void {
     config(['flink.results.api_key' => 'flk_test_0123456789abcdef', 'flink.results.audience' => null]);

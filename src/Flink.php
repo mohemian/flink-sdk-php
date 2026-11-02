@@ -80,7 +80,7 @@ final readonly class Flink
      * flow offers, read before any session, so your page can ask first (FLNK-1181). With either
      * credential. Read it when you render the choice: FLINK withdraws an eID without the journey changing.
      *
-     * @throws ResultUnavailable 404 a journey that does not exist, 403 one this credential may not read, or FLINK unreachable
+     * @throws ResultUnavailable 404 a journey that does not exist or this credential may not read, or FLINK unreachable
      * @throws MissingConfiguration
      */
     public function fetchCountries(string $journey): JourneyCountries

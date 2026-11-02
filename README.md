@@ -192,8 +192,8 @@ $read->countryLabels;                      // FLINK's own country names, keyed '
 It is what FLINK's own web flow offers for the journey: every country it covers, each with the eIDs a
 session there offers (none for a document-only country). FLINK can withdraw an eID without the
 journey changing, so read it when you render the choice. It throws `ResultUnavailable` like
-`fetchResult()`: 404 for a journey that does not exist, 403 for one your credential may not read (an
-API key reads only its own journey).
+`fetchResult()`: 404 for a journey that does not exist or that your credential may not read (an API
+key reads only its own journey, a client only its tenant's).
 
 Fetched some other way, FLINK answers `{ "signedResult": "<jwt>" }`, and `Flink::results()` verifies
 that JWT: ES256 only (the same JWKS serves
