@@ -77,10 +77,12 @@ final readonly class Flink
 
     /**
      * The countries a journey covers and, in each, the eIDs a person can choose: what FLINK's own web
-     * flow offers, read before any session, so your page can ask first (FLNK-1181). With either
-     * credential. Read it when you render the choice: FLINK withdraws an eID without the journey changing.
+     * flow offers, read before any session, so your page can ask first (FLNK-1181). FLINK requires the
+     * `flow-session:write` scope for it, so a `private_key_jwt` client must be registered with that scope;
+     * a results-only client lacks it and gets 403. Read it when you render the choice: FLINK withdraws an
+     * eID without the journey changing.
      *
-     * @throws ResultUnavailable 404 a journey that does not exist or this credential may not read, or FLINK unreachable
+     * @throws ResultUnavailable 403 a client without `flow-session:write`, 404 a journey that does not exist or this credential may not read, or FLINK unreachable
      * @throws MissingConfiguration
      */
     public function fetchCountries(string $journey): JourneyCountries

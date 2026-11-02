@@ -116,10 +116,12 @@ final readonly class ResultClient
     }
 
     /**
-     * A journey's countries and the eIDs it offers in each (FLNK-1181), with either credential: a key
-     * reads its own journey, a client id any journey of its tenant.
+     * A journey's countries and the eIDs it offers in each (FLNK-1181). FLINK requires the
+     * `flow-session:write` scope for it, so a `private_key_jwt` client must be registered with that scope;
+     * a results-only client lacks it and gets 403. A key reads its own journey, a client id any journey
+     * of its tenant.
      *
-     * @throws ResultUnavailable
+     * @throws ResultUnavailable 403 a client without `flow-session:write`, 404 a journey that does not exist or this credential may not read
      * @throws MissingConfiguration
      */
     public function countries(string $journey): JourneyCountries
