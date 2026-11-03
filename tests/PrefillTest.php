@@ -202,6 +202,46 @@ it('counts a non-scalar submitted value as changed instead of failing', function
     expect($prefill->changed(['givenName' => [], 'familyName' => ['x' => 'y']]))->toBe(['givenName', 'familyName']);
 });
 
+it('counts colliding submitted paths as changed regardless of their order or values', function (array $submitted): void {
+    $prefill = Flink::prefill($this->jwt(['data' => [
+        'address' => ['street' => 'Hauptstraße', 'city' => 'Wien'],
+    ]]), TestCase::REF);
+
+    expect($prefill->changed($submitted))->toBe(['address.street'])
+        ->and($prefill->changed($submitted, only: ['address.city']))->toBe([]);
+})->with([
+    'dotted key last' => [['address' => ['street' => 'Altered', 'city' => 'Wien'], 'address.street' => 'Hauptstraße']],
+    'nested key last' => [['address.street' => 'Hauptstraße', 'address' => ['street' => 'Altered', 'city' => 'Wien']]],
+    'equal values' => [['address' => ['street' => 'Hauptstraße', 'city' => 'Wien'], 'address.street' => 'Hauptstraße']],
+    'empty array' => [['address' => ['street' => [], 'city' => 'Wien'], 'address.street' => 'Hauptstraße']],
+    'null value' => [['address' => ['street' => null, 'city' => 'Wien'], 'address.street' => 'Hauptstraße']],
+]);
+
+it('counts colliding signed paths as changed and accepts unambiguous dotted input', function (): void {
+    $ambiguous = Flink::prefill($this->jwt(['data' => [
+        'address' => ['street' => 'Hauptstraße'], 'address.street' => 'Ringstraße',
+    ]]), TestCase::REF);
+    $prefill = Flink::prefill($this->jwt(['data' => [
+        'address' => ['street' => 'Hauptstraße', 'city' => 'Wien'],
+    ]]), TestCase::REF);
+
+    expect($ambiguous->changed(['address.street' => 'Ringstraße']))->toBe(['address.street'])
+        ->and($prefill->changed(['address.street' => 'Hauptstraße', 'address' => ['city' => 'Wien']]))->toBe([]);
+});
+
+it('detects collisions at deeper levels and after multiple duplicates', function (): void {
+    $prefill = Flink::prefill($this->jwt(['data' => ['a' => ['b' => ['c' => 'signed']]]]), TestCase::REF);
+
+    expect($prefill->changed(['a' => ['b' => ['c' => 'altered'], 'b.c' => 'signed'], 'a.b.c' => 'signed']))->toBe(['a.b.c']);
+});
+
+it('compares numeric paths and detects their collisions', function (): void {
+    $prefill = Flink::prefill($this->jwt(['data' => ['items' => [['name' => 'signed']]]]), TestCase::REF);
+
+    expect($prefill->changed(['items' => [['name' => 'signed']]]))->toBe([])
+        ->and($prefill->changed(['items' => [['name' => 'altered']], 'items.0.name' => 'signed']))->toBe(['items.0.name']);
+});
+
 it('compares only the fields asked for', function (): void {
     $prefill = Flink::prefill($this->jwt(['data' => ['givenName' => 'Erika', 'familyName' => 'Mustermann']]), TestCase::REF);
 

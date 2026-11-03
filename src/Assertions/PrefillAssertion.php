@@ -86,7 +86,8 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
      * The verified fields the submission does not match, as dotted keys (`address.street`). Values
      * are compared as strings after trimming and Unicode NFC normalisation, nothing more; a verified
      * field missing from the submission counts as changed, and fields the JWT does not carry are
-     * not compared. `$only` limits the comparison to those verified fields.
+     * not compared. A path occurring more than once in either array counts as changed. `$only`
+     * limits the comparison to those verified fields.
      *
      * @param  array<string, mixed>  $submitted
      * @param  list<string>|null  $only
@@ -94,20 +95,40 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
      */
     public function changed(array $submitted, ?array $only = null): array
     {
-        $verified = Arr::dot($this->data);
+        $verified = [];
+        self::dotForComparison($this->data, $verified);
         if ($only !== null) {
             $verified = Arr::only($verified, $only);
         }
-        $submitted = Arr::dot($submitted);
+        $flattened = [];
+        self::dotForComparison($submitted, $flattened);
         $changed = [];
         foreach ($verified as $field => $value) {
-            $theirs = array_key_exists($field, $submitted) ? $this->normalise($submitted[$field]) : null;
+            $theirs = array_key_exists($field, $flattened) ? $this->normalise($flattened[$field]) : null;
             if ($theirs === null || $theirs !== $this->normalise($value)) {
                 $changed[] = (string) $field;
             }
         }
 
         return $changed;
+    }
+
+    /**
+     * Flatten like Arr::dot, but make duplicate paths non-scalar so they can never match.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @param  array<array-key, mixed>  $result
+     */
+    private static function dotForComparison(array $data, array &$result, string $prefix = ''): void
+    {
+        foreach ($data as $key => $value) {
+            $path = $prefix.$key;
+            if (is_array($value) && $value !== []) {
+                self::dotForComparison($value, $result, $path.'.');
+            } else {
+                $result[$path] = array_key_exists($path, $result) ? [] : $value;
+            }
+        }
     }
 
     /** @return array<string, mixed> the verified data */

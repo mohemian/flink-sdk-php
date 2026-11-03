@@ -93,10 +93,17 @@ A journey with no identity step (email only, say) issues a JWT without `method`,
 refused. That is deliberate: nothing in such a JWT is identity-backed, the email address included,
 so it cannot stand in for a verified identity.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:a8a8f81cc7f37e43bc536bf67dc9bc843ef56b4e9b8e3b90a2903c989200a423 -->
+
 `changed()` returns the verified fields the submission changed or left out, as dotted keys; pass
 `only:` to compare a subset. It compares strings after trimming and Unicode NFC normalisation, and
-nothing more. Which changes you accept is your policy: [docs/statamic.md](docs/statamic.md) locks
-names and birthdate and lets the address change.
+nothing more. A verified path that appears more than once when either array is flattened counts as
+changed, even when the values match. Which changes you accept is your policy: [docs/statamic.md](docs/statamic.md)
+locks names and birthdate and lets the address change.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 `Flink::reference()` issues this session's reference on first use (`@flinkReference` in Blade),
 `Flink::forgetReference()` rotates it, so one journey run backs one submission. `$prefill->id` is
