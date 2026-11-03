@@ -95,7 +95,8 @@ so it cannot stand in for a verified identity.
 
 `changed()` returns the verified fields the submission changed or left out, as dotted keys; pass
 `only:` to compare a subset. It compares strings after trimming and Unicode NFC normalisation, and
-nothing more. Which changes you accept is your policy: [docs/statamic.md](docs/statamic.md) locks
+nothing more. A field submitted both nested and as a literal dotted key (`address[street]` and
+`address.street`) counts as changed. Which changes you accept is your policy: [docs/statamic.md](docs/statamic.md) locks
 names and birthdate and lets the address change.
 
 `Flink::reference()` issues this session's reference on first use (`@flinkReference` in Blade),

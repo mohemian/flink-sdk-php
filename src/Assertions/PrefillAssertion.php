@@ -86,7 +86,8 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
      * The verified fields the submission does not match, as dotted keys (`address.street`). Values
      * are compared as strings after trimming and Unicode NFC normalisation, nothing more; a verified
      * field missing from the submission counts as changed, and fields the JWT does not carry are
-     * not compared. `$only` limits the comparison to those verified fields.
+     * not compared, and a field two locations flatten to (`address[street]` and a literal
+     * `address.street`) counts as changed. `$only` limits the comparison to those verified fields.
      *
      * @param  array<string, mixed>  $submitted
      * @param  list<string>|null  $only
@@ -94,11 +95,11 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
      */
     public function changed(array $submitted, ?array $only = null): array
     {
-        $verified = Arr::dot($this->data);
+        $verified = self::dot($this->data);
         if ($only !== null) {
             $verified = Arr::only($verified, $only);
         }
-        $submitted = Arr::dot($submitted);
+        $submitted = self::dot($submitted);
         $changed = [];
         foreach ($verified as $field => $value) {
             $theirs = array_key_exists($field, $submitted) ? $this->normalise($submitted[$field]) : null;
@@ -120,6 +121,26 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
     public function jsonSerialize(): array
     {
         return $this->data;
+    }
+
+    /**
+     * `Arr::dot`, except a key two locations flatten to holds `[]`, which never matches: otherwise the
+     * last one would win, and it may not be the one the app reads.
+     *
+     * @param  array<array-key, mixed>  $array
+     * @return array<array-key, mixed>
+     */
+    private static function dot(array $array, string $prefix = ''): array
+    {
+        $flat = [];
+        foreach ($array as $key => $value) {
+            $leaves = is_array($value) && $value !== [] ? self::dot($value, $prefix.$key.'.') : [$prefix.$key => $value];
+            foreach ($leaves as $path => $leaf) {
+                $flat[$path] = array_key_exists($path, $flat) ? [] : $leaf;
+            }
+        }
+
+        return $flat;
     }
 
     /** `null` for what is not a scalar (a client can post `field[]=`), which never matches. */
