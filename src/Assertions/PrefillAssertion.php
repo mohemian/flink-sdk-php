@@ -87,7 +87,7 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
      * are compared as strings after trimming and Unicode NFC normalisation, nothing more; a verified
      * field missing from the submission counts as changed, and fields the JWT does not carry are
      * not compared, and a field two locations flatten to (`address[street]` and a literal
-     * `address.street`) counts as changed. `$only` limits the comparison to those verified fields.
+     * `address.street`, or a literal `address.street` beside `address[street][]`) counts as changed. `$only` limits the comparison to those verified fields.
      *
      * @param  array<string, mixed>  $submitted
      * @param  list<string>|null  $only
@@ -137,6 +137,17 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
             $leaves = is_array($value) && $value !== [] ? self::dot($value, $prefix.$key.'.') : [$prefix.$key => $value];
             foreach ($leaves as $path => $leaf) {
                 $flat[$path] = array_key_exists($path, $flat) ? [] : $leaf;
+            }
+        }
+        if ($prefix === '') {
+            // A leaf that is also the parent of another path (`address.street` beside
+            // `address[street][0]`) is read by the app as either, so it never matches either.
+            foreach (array_keys($flat) as $path) {
+                for ($dot = strpos((string) $path, '.'); $dot !== false; $dot = strpos((string) $path, '.', $dot + 1)) {
+                    if (array_key_exists($parent = substr((string) $path, 0, $dot), $flat)) {
+                        $flat[$parent] = [];
+                    }
+                }
             }
         }
 
