@@ -15,8 +15,10 @@ use Mohemian\Flink\Exceptions\InvalidSignature;
 use Mohemian\Flink\Exceptions\KeysUnavailable;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
 use Mohemian\Flink\Exceptions\ResultUnavailable;
+use Mohemian\Flink\Exceptions\SessionRefused;
 use Mohemian\Flink\Results\FlowSession;
 use Mohemian\Flink\Results\JourneyCountries;
+use Mohemian\Flink\Results\LinkSession;
 use Mohemian\Flink\Results\ResultClient;
 use Mohemian\Flink\Verification\Verifier;
 
@@ -88,6 +90,38 @@ final readonly class Flink
     public function fetchCountries(string $journey): JourneyCountries
     {
         return $this->app->make(ResultClient::class)->countries($journey);
+    }
+
+    /**
+     * Start a session at one of the journey's countries and eIDs, as `fetchCountries()` lists them,
+     * and get the FLINK link that takes the person straight to that eID's login, with no FLINK screen
+     * (FLNK-1182). Keep `sessionId` with your logged-in user. FLINK runs the journey's remaining steps
+     * itself and sends the person to the journey's return link, with a `flink_return_code` query
+     * parameter when it completed: pass that to `completeReturn()`. `$clientIp` and `$userAgent` are
+     * the person's, as your server sees them.
+     *
+     * @throws SessionRefused FLINK will not start it, and says why
+     * @throws ResultUnavailable 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
+     * @throws MissingConfiguration
+     */
+    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp = null, ?string $userAgent = null): LinkSession
+    {
+        return $this->app->make(ResultClient::class)->startSession($journey, $country, $eidEntry, $clientIp, $userAgent);
+    }
+
+    /**
+     * Confirm the person came back, with the `flink_return_code` your return link received, which
+     * releases the session's result for `fetchResult()`. **Only for the session id you stored for the
+     * user logged in on this request, never one taken from the URL**: that check is what stops someone
+     * forwarding their own link to another person from receiving that person's identity. True when
+     * confirmed (again on a reload), false for a wrong, expired or foreign code.
+     *
+     * @throws ResultUnavailable FLINK refused the client, or was unreachable
+     * @throws MissingConfiguration
+     */
+    public function completeReturn(string $sessionId, string $code): bool
+    {
+        return $this->app->make(ResultClient::class)->completeReturn($sessionId, $code);
     }
 
     /**

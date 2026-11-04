@@ -12,6 +12,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Str;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
 use Mohemian\Flink\Exceptions\ResultUnavailable;
+use Mohemian\Flink\Exceptions\SessionRefused;
 
 /**
  * Fetches a session's signed result as your backend's own client (FLNK-861). The client proves
@@ -84,7 +85,13 @@ final readonly class ResultClient
         $response = $this->get('result', $this->tenantPath().'/sessions/'.rawurlencode($sessionId).'/results');
         if ($response->status() === 409) {
             $status = $response->json('status');
-            throw ResultUnavailable::notReady(is_string($status) ? $status : null);
+            $reason = $response->json('reason');
+            $eidError = $response->json('eid_error');
+            throw ResultUnavailable::notReady(
+                is_string($status) ? $status : null,
+                is_string($reason) ? $reason : null,
+                is_string($eidError) ? $eidError : null,
+            );
         }
         $signed = $response->json('signedResult');
         if (! $response->ok() || ! is_string($signed)) {
@@ -133,6 +140,76 @@ final readonly class ResultClient
 
         return JourneyCountries::fromResponse($response->json())
             ?? throw new ResultUnavailable('FLINK answered the countries request with something other than countries', 200);
+    }
+
+    /**
+     * Start a session at one of the journey's countries and eIDs behind a FLINK link (FLNK-1182).
+     *
+     * @throws SessionRefused FLINK will not start it, and says why
+     * @throws ResultUnavailable 403 a client that is not a relying party's backend, 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
+     * @throws MissingConfiguration
+     */
+    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp, ?string $userAgent): LinkSession
+    {
+        $response = $this->post('link', '/journeys/'.rawurlencode($journey).'/sessions', array_filter([
+            'country' => $country,
+            'eid_entry' => $eidEntry,
+            'client_ip' => $clientIp,
+            'user_agent' => $userAgent,
+        ], fn (mixed $value): bool => $value !== null && $value !== ''));
+        $code = $response->json('code');
+        if ($response->status() === 400 && is_string($code)) {
+            $step = $response->json('step');
+            throw new SessionRefused($code, is_string($step) ? $step : null);
+        }
+        if ($response->status() !== 201) {
+            throw ResultUnavailable::answered('link', $response->status());
+        }
+
+        return LinkSession::fromResponse($response->json())
+            ?? throw new ResultUnavailable('FLINK answered the link request with something other than a session and its https link', 201);
+    }
+
+    /**
+     * Confirm the person came back with the session's return code (FLNK-1182): true when FLINK
+     * released the result (again on a repeat), false for a wrong, expired or foreign code.
+     *
+     * @throws ResultUnavailable
+     * @throws MissingConfiguration
+     */
+    public function completeReturn(string $sessionId, string $code): bool
+    {
+        // FLINK's codes are short; one it could not have issued is false without asking.
+        if ($code === '' || strlen($code) > 128) {
+            return false;
+        }
+        $response = $this->post('return', $this->tenantPath().'/sessions/'.rawurlencode($sessionId).'/return', ['code' => $code]);
+
+        return match ($response->status()) {
+            204 => true,
+            400 => false,
+            default => throw ResultUnavailable::answered('return', $response->status()),
+        };
+    }
+
+    /**
+     * A POST under FLINK's client API, with the client token.
+     *
+     * @param  array<string, mixed>  $body
+     *
+     * @throws ResultUnavailable
+     * @throws MissingConfiguration
+     */
+    private function post(string $step, string $path, array $body): Response
+    {
+        $response = $this->send($step, fn (): Response => $this->http->timeout(10)->withoutRedirecting()
+            ->withToken($this->token())
+            ->post("{$this->url}/client/v1{$path}", $body));
+        if ($response->status() === 401) {
+            $this->cache->forget($this->cacheKey);
+        }
+
+        return $response;
     }
 
     /**

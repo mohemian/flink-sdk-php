@@ -12,6 +12,8 @@ use Mohemian\Flink\Testing\FlinkFake;
  * @method static \Mohemian\Flink\Assertions\ResultsAssertion fetchResult(string $sessionId)
  * @method static \Mohemian\Flink\Results\FlowSession fetchSession(string $sessionId)
  * @method static \Mohemian\Flink\Results\JourneyCountries fetchCountries(string $journey)
+ * @method static \Mohemian\Flink\Results\LinkSession startSession(string $journey, string $country, int $eidEntry, ?string $clientIp = null, ?string $userAgent = null)
+ * @method static bool completeReturn(string $sessionId, string $code)
  * @method static \Mohemian\Flink\Assertions\Assertion verify(mixed $jwt, string $type, array<string, mixed> $expected = [])
  * @method static string reference()
  * @method static string|null currentReference()
