@@ -2,5 +2,24 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "Group minor and patch dependency updates into one pull request",
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "all minor and patch dependencies",
+      "groupSlug": "all-minor-patch"
+    },
+    {
+      "description": "Keep major dependency updates in individual pull requests",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "groupName": null,
+      "groupSlug": null
+    }
   ]
 }
