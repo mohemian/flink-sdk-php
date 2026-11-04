@@ -30,11 +30,23 @@ final readonly class LinkSession
         $tenantId = $body['tenant_id'] ?? null;
         $url = $body['link']['url'] ?? null;
         $expiresAt = $body['link']['expires_at'] ?? null;
-        // The link goes to a browser: only an https one, as FLINK always sends.
-        if (! is_string($sessionId) || ! is_string($tenantId) || ! is_string($url) || ! str_starts_with($url, 'https://') || ! is_string($expiresAt)) {
+        // The link goes to a browser: only an absolute https url with a host and no credentials, as
+        // FLINK always sends.
+        if (! is_string($sessionId) || ! is_string($tenantId) || ! is_string($url) || ! self::isHttpsLink($url) || ! is_string($expiresAt)) {
             return null;
         }
 
         return new self($sessionId, $tenantId, $url, $expiresAt);
+    }
+
+    private static function isHttpsLink(string $url): bool
+    {
+        $parts = parse_url($url);
+
+        return is_array($parts)
+            && ($parts['scheme'] ?? null) === 'https'
+            && ($parts['host'] ?? '') !== ''
+            && ! isset($parts['user'])
+            && ! isset($parts['pass']);
     }
 }

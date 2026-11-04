@@ -77,15 +77,15 @@ it('says why FLINK did not start the session, by its status', function (int $sta
 })->with([400, 403, 404, 429, 500]);
 
 // Defence in depth: the link goes to a browser, so only an https one is passed on.
-it('refuses a link that is not https', function (): void {
+it('refuses a link that is not an absolute https url with a host and no credentials', function (string $url): void {
     $this->startAnswer = fn (): mixed => Http::response([
         'session_id' => TestCase::SESSION,
         'tenant_id' => TestCase::TENANT,
-        'link' => ['url' => 'http://web.test/l/handle-1', 'expires_at' => '2026-11-04T12:15:00.000Z'],
+        'link' => ['url' => $url, 'expires_at' => '2026-11-04T12:15:00.000Z'],
     ], 201);
 
     expect(fn () => Flink::startSession(TestCase::JOURNEY, 'at', 2))->toThrow(ResultUnavailable::class);
-});
+})->with(['http://web.test/l/handle-1', 'https://', 'https:///l/x', 'https://user:pass@web.test/l/x']);
 
 it('confirms the return with the code, and answers false for one FLINK refuses', function (): void {
     expect(Flink::completeReturn(TestCase::SESSION, 'code-1'))->toBeTrue();
