@@ -82,7 +82,7 @@ final readonly class ResultClient
      */
     public function signedResult(string $sessionId): string
     {
-        $response = $this->get('result', $this->tenantPath().'/sessions/'.rawurlencode($sessionId).'/results');
+        $response = $this->get('result', $this->sessionPath($sessionId).'/results');
         if ($response->status() === 409) {
             $status = $response->json('status');
             $reason = $response->json('reason');
@@ -113,7 +113,7 @@ final readonly class ResultClient
         if ($this->apiKey === null) {
             throw new MissingConfiguration('Set FLINK_API_KEY: only a journey API key reads a session it did not run');
         }
-        $response = $this->get('session', $this->tenantPath().'/sessions/'.rawurlencode($sessionId));
+        $response = $this->get('session', $this->sessionPath($sessionId));
         if (! $response->ok()) {
             throw ResultUnavailable::answered('session', $response->status());
         }
@@ -183,7 +183,7 @@ final readonly class ResultClient
         if ($code === '' || strlen($code) > 128) {
             return false;
         }
-        $response = $this->post('return', $this->tenantPath().'/sessions/'.rawurlencode($sessionId).'/return', ['code' => $code]);
+        $response = $this->post('return', $this->sessionPath($sessionId).'/return', ['code' => $code]);
 
         return match ($response->status()) {
             204 => true,
@@ -234,6 +234,11 @@ final readonly class ResultClient
     private function tenantPath(): string
     {
         return "/tenants/{$this->tenantId}";
+    }
+
+    private function sessionPath(string $sessionId): string
+    {
+        return $this->tenantPath().'/sessions/'.rawurlencode($sessionId);
     }
 
     private function token(): string
