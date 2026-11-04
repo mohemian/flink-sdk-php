@@ -101,7 +101,7 @@ final readonly class Flink
      * the person's, as your server sees them.
      *
      * @throws SessionRefused FLINK will not start it, and says why
-     * @throws ResultUnavailable 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
+     * @throws ResultUnavailable 403 a client without `flow-session:write`, 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
      * @throws MissingConfiguration
      */
     public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp = null, ?string $userAgent = null): LinkSession

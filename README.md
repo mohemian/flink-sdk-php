@@ -218,7 +218,9 @@ of: `$results->derivedAsOf('ageOver18')` returns it, or null for an issuer's own
 
 ### Send a person straight to their eID
 
-Needs flink-services with FLNK-1182. Your page asks for the person's country and eID
+Needs flink-services with FLNK-1182 (mohemian/flink-services#1483 and #1486), and a credential with
+the `flow-session:write` scope: a journey API key has it; a `private_key_jwt` client registered for
+results only gets `403`, as for `fetchCountries()`. Your page asks for the person's country and eID
 (`fetchCountries()`), your backend starts a session there, and the person follows a FLINK link
 straight to that eID's login, with no FLINK screen. FLINK runs the journey's remaining steps itself
 (today only a sanctions check qualifies) and sends the person to the journey's return link. Your
@@ -233,6 +235,7 @@ try {
 } catch (SessionRefused $e) {
     // $e->reason: 'unknown_country', 'unknown_eid_entry', 'eid_entry_not_redirect' (e.g. Swedish BankID),
     // 'journey_needs_interaction' ($e->step names the step), 'no_return_link', 'journey_not_runnable'
+    return back()->withErrors(['eid' => 'This eID cannot be used here. Please choose another.']);
 }
 $request->user()->update(['flink_session' => $session->sessionId]);  // keep it with your user
 return redirect()->away($session->url);
@@ -257,8 +260,8 @@ arrives without your session: log them in there before confirming, or start a ne
 lives five minutes and is issued once.
 
 `startSession()` throws `SessionRefused` with FLINK's reason, or `ResultUnavailable` (404 a journey
-your credential may not start, 429 too many starts, 403 a client that is not a relying party's
-backend). The link opens for 15 minutes, to retry a failed or cancelled login, and never once the
+your credential may not start, 429 too many starts, 403 a client without `flow-session:write` or one
+that is not a relying party's backend). The link opens for 15 minutes, to retry a failed or cancelled login, and never once the
 eID has succeeded. `completeReturn()` is true when FLINK released the result (again on a reload) and
 false for a wrong, expired or foreign code. Until then, `fetchResult()` throws `ResultUnavailable`
 with status 409 and a `reason`: `awaiting_return` (confirm first), `eid_failed` (with `eidError`;
