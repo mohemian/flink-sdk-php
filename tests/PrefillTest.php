@@ -202,6 +202,21 @@ it('counts a non-scalar submitted value as changed instead of failing', function
     expect($prefill->changed(['givenName' => [], 'familyName' => ['x' => 'y']]))->toBe(['givenName', 'familyName']);
 });
 
+it('counts a field as changed when a dotted key and a nested path both submit it', function (array $submitted): void {
+    // address[street] and a literal `address.street` flatten to one key; whichever came last would
+    // decide the comparison, while the app may read the other.
+    $prefill = Flink::prefill($this->jwt(['data' => ['address' => ['street' => 'Hauptstraße', 'city' => 'Wien']]]), TestCase::REF);
+
+    expect($prefill->changed($submitted))->toBe(['address.street']);
+})->with([
+    'dotted key last' => [['address' => ['street' => 'Ringstraße', 'city' => 'Wien'], 'address.street' => 'Hauptstraße']],
+    'nested path last' => [['address.street' => 'Hauptstraße', 'address' => ['street' => 'Ringstraße', 'city' => 'Wien']]],
+    'both signed' => [['address' => ['street' => 'Hauptstraße', 'city' => 'Wien'], 'address.street' => 'Hauptstraße']],
+    'dotted key last, nested value an array' => [['address' => ['street' => ['Ringstraße'], 'city' => 'Wien'], 'address.street' => 'Hauptstraße']],
+    'dotted key first, nested value an array' => [['address.street' => 'Hauptstraße', 'address' => ['street' => ['Ringstraße'], 'city' => 'Wien']]],
+    'nested signed value, dotted key an array' => [['address' => ['street' => 'Hauptstraße', 'city' => 'Wien'], 'address.street' => ['value' => 'x']]],
+]);
+
 it('compares only the fields asked for', function (): void {
     $prefill = Flink::prefill($this->jwt(['data' => ['givenName' => 'Erika', 'familyName' => 'Mustermann']]), TestCase::REF);
 
