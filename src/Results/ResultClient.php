@@ -159,7 +159,7 @@ final readonly class ResultClient
             'client_ip' => $clientIp,
             'user_agent' => $userAgent,
             'notice' => $notice,
-        ], fn (mixed $value): bool => $value !== null && $value !== ''));
+        ], fn (mixed $value): bool => ! in_array($value, [null, '', []], true)));
         $code = $response->json('code');
         if ($response->status() === 400 && is_string($code)) {
             $step = $response->json('step');
