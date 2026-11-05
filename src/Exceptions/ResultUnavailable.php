@@ -30,6 +30,12 @@ final class ResultUnavailable extends \RuntimeException
         parent::__construct($message, previous: $previous);
     }
 
+    /**
+     * FLINK answered 409: the session has no result to read yet. `$reason` says why when FLINK
+     * gives one (for a session from `startSession()`: `awaiting_return`, `eid_failed` with
+     * `$eidError`, `sanctions_unavailable`, `return_expired`, `link_expired`); handle a reason you
+     * do not know.
+     */
     public static function notReady(?string $sessionStatus, ?string $reason = null, ?string $eidError = null): self
     {
         return new self(

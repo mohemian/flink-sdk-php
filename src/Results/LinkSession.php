@@ -39,6 +39,10 @@ final readonly class LinkSession
         return new self($sessionId, $tenantId, $url, $expiresAt);
     }
 
+    /**
+     * Only an absolute `https` URL with a host and no credentials is a link this package hands
+     * back to send a person to: anything else is not FLINK's link.
+     */
     private static function isHttpsLink(string $url): bool
     {
         $parts = parse_url($url);
