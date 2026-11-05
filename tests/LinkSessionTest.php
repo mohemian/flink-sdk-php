@@ -85,7 +85,38 @@ it('refuses a link that is not an absolute https url with a host and no credenti
     ], 201);
 
     expect(fn () => Flink::startSession(TestCase::JOURNEY, 'at', 2))->toThrow(ResultUnavailable::class);
-})->with(['http://web.test/l/handle-1', 'https://', 'https:///l/x', 'https://user:pass@web.test/l/x']);
+})->with([
+    'http://web.test/l/handle-1',
+    'https://',
+    'https:///l/x',
+    // Parses with no host: a browser would follow it to https://l/x.
+    'https:/l/x',
+    'https://user:pass@web.test/l/x',
+    'https://user@web.test/l/x',
+]);
+
+// Each call carries the client token, and the start carries the person's IP and browser: a redirect
+// must never send them on to another origin.
+it('never follows a redirect on the start or the return', function (string $answer): void {
+    $this->{$answer} = fn (): mixed => Http::response(null, 307, ['Location' => 'https://elsewhere.test/collect']);
+    Http::fake(['https://elsewhere.test/*' => Http::response(null, 204)]);
+
+    expect(fn () => $answer === 'startAnswer'
+        ? Flink::startSession(TestCase::JOURNEY, 'at', 2, '203.0.113.7', 'Browser/1')
+        : Flink::completeReturn(TestCase::SESSION, 'code-1'))->toThrow(ResultUnavailable::class);
+    Http::assertNotSent(fn (Request $request): bool => $request->url() === 'https://elsewhere.test/collect');
+})->with(['the start' => 'startAnswer', 'the return' => 'returnAnswer']);
+
+// A token FLINK stopped accepting (revoked, its key rotated) is dropped on the 401, so the next call
+// fetches a new one instead of failing until the cached one expires.
+it('drops the client token FLINK rejected on a return', function (): void {
+    $this->returnAnswer = fn (): mixed => Http::response(null, 401);
+    expect(fn () => Flink::completeReturn(TestCase::SESSION, 'code-1'))->toThrow(ResultUnavailable::class);
+
+    $this->returnAnswer = fn (): mixed => Http::response(null, 204);
+    expect(Flink::completeReturn(TestCase::SESSION, 'code-1'))->toBeTrue();
+    expect(Http::recorded(fn (Request $request): bool => $request->url() === LINK_TOKEN_URL))->toHaveCount(2);
+});
 
 it('confirms the return with the code, and answers false for one FLINK refuses', function (): void {
     expect(Flink::completeReturn(TestCase::SESSION, 'code-1'))->toBeTrue();
