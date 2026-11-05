@@ -267,7 +267,8 @@ showed it in. FLINK does not require it yet (FLNK-1184).
 your credential may not start, 429 too many starts, 403 a client without `flow-session:write` or one
 that is not a relying party's backend). The link opens for 15 minutes, to retry a failed or cancelled login, and never once the
 eID has succeeded. `completeReturn()` is true when FLINK released the result (again on a reload) and
-false for a wrong, expired or foreign code. Until then, `fetchResult()` throws `ResultUnavailable`
+false for a wrong, expired or foreign code (start a new session). It throws `ResultUnavailable` when
+FLINK could not be asked: keep the code and let the person retry the same return URL. Until then, `fetchResult()` throws `ResultUnavailable`
 with status 409 and a `reason`: `awaiting_return` (confirm first), `eid_failed` (with `eidError`;
 opening the link again retries), `sanctions_unavailable`, `return_expired` or `link_expired`. Decide
 from `sessionStatus` alone whether to ask again: `aborted` is final. FLINK deletes the person's data
