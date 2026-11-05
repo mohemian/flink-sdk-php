@@ -98,15 +98,19 @@ final readonly class Flink
      * (FLNK-1182). Keep `sessionId` with your logged-in user. FLINK runs the journey's remaining steps
      * itself and sends the person to the journey's return link, with a `flink_return_code` query
      * parameter when it completed: pass that to `completeReturn()`. `$clientIp` and `$userAgent` are
-     * the person's, as your server sees them.
+     * the person's, as your server sees them. `$notice` attests that your page showed the person the
+     * journey's applicant notice: `revision` as FLINK served it and the BCP 47 `locale` you showed it
+     * in. FLINK does not require it yet (FLNK-1184); send it once your start page shows the notice.
+     *
+     * @param  array{revision?: string, locale?: string}|null  $notice
      *
      * @throws SessionRefused FLINK will not start it, and says why
      * @throws ResultUnavailable 403 a client without `flow-session:write`, 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
      * @throws MissingConfiguration
      */
-    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp = null, ?string $userAgent = null): LinkSession
+    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp = null, ?string $userAgent = null, ?array $notice = null): LinkSession
     {
-        return $this->app->make(ResultClient::class)->startSession($journey, $country, $eidEntry, $clientIp, $userAgent);
+        return $this->app->make(ResultClient::class)->startSession($journey, $country, $eidEntry, $clientIp, $userAgent, $notice);
     }
 
     /**

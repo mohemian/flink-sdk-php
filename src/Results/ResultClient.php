@@ -145,17 +145,20 @@ final readonly class ResultClient
     /**
      * Start a session at one of the journey's countries and eIDs behind a FLINK link (FLNK-1182).
      *
+     * @param  array{revision?: string, locale?: string}|null  $notice
+     *
      * @throws SessionRefused FLINK will not start it, and says why
      * @throws ResultUnavailable 403 a client without `flow-session:write` or not a relying party's backend, 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
      * @throws MissingConfiguration
      */
-    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp, ?string $userAgent): LinkSession
+    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp, ?string $userAgent, ?array $notice = null): LinkSession
     {
         $response = $this->post('link', '/journeys/'.rawurlencode($journey).'/sessions', array_filter([
             'country' => $country,
             'eid_entry' => $eidEntry,
             'client_ip' => $clientIp,
             'user_agent' => $userAgent,
+            'notice' => $notice,
         ], fn (mixed $value): bool => $value !== null && $value !== ''));
         $code = $response->json('code');
         if ($response->status() === 400 && is_string($code)) {

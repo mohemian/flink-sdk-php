@@ -259,6 +259,10 @@ cookie on a cross-site redirect from FLINK, so it needs `SameSite=Lax` (Laravel'
 arrives without your session: log them in there before confirming, or start a new session. The code
 lives five minutes and is issued once.
 
+Once your start page shows the journey's applicant notice, attest it on the start with
+`notice: ['revision' => …, 'locale' => …]`: the `revision` FLINK served and the BCP 47 locale you
+showed it in. FLINK does not require it yet (FLNK-1184).
+
 `startSession()` throws `SessionRefused` with FLINK's reason, or `ResultUnavailable` (404 a journey
 your credential may not start, 429 too many starts, 403 a client without `flow-session:write` or one
 that is not a relying party's backend). The link opens for 15 minutes, to retry a failed or cancelled login, and never once the

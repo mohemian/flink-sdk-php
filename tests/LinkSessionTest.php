@@ -46,6 +46,13 @@ it('starts a session at the chosen eID and hands back the FLINK link', function 
         && $request->data() === ['country' => 'at', 'eid_entry' => 2, 'client_ip' => '203.0.113.7', 'user_agent' => 'Browser/1']);
 });
 
+it('sends the notice attestation it is given (FLNK-1184)', function (): void {
+    Flink::startSession(TestCase::JOURNEY, 'at', 2, notice: ['revision' => '0123456789abcdef', 'locale' => 'de-AT']);
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === LINK_START_URL
+        && $request->data() === ['country' => 'at', 'eid_entry' => 2, 'notice' => ['revision' => '0123456789abcdef', 'locale' => 'de-AT']]);
+});
+
 it('leaves out the person fields it was not given', function (): void {
     Flink::startSession(TestCase::JOURNEY, 'at', 2);
 
