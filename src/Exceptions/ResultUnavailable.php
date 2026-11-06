@@ -17,13 +17,34 @@ final class ResultUnavailable extends \RuntimeException
         /** On a `409`: the session's status (`started`, `aborted`, …). */
         public readonly ?string $sessionStatus = null,
         ?\Throwable $previous = null,
+        /**
+         * On a `409` for a session from `Flink::startSession()` (FLNK-1182), why it has no result:
+         * `awaiting_return` (call `completeReturn()` first), `eid_failed`, `sanctions_unavailable`,
+         * `return_expired`, `link_expired`. Decide from `sessionStatus` alone whether to ask again:
+         * `aborted` is final. Ignore a reason you do not know.
+         */
+        public readonly ?string $reason = null,
+        /** With `reason` `eid_failed`: FLINK's code for the failed login, e.g. `country_mismatch`. */
+        public readonly ?string $eidError = null,
     ) {
         parent::__construct($message, previous: $previous);
     }
 
-    public static function notReady(?string $sessionStatus): self
+    /**
+     * FLINK answered 409: the session has no result to read yet. `$reason` says why when FLINK
+     * gives one (for a session from `startSession()`: `awaiting_return`, `eid_failed` with
+     * `$eidError`, `sanctions_unavailable`, `return_expired`, `link_expired`); handle a reason you
+     * do not know.
+     */
+    public static function notReady(?string $sessionStatus, ?string $reason = null, ?string $eidError = null): self
     {
-        return new self('The session has no result yet (status '.($sessionStatus ?? 'unknown').')', 409, $sessionStatus);
+        return new self(
+            'The session has no result yet (status '.($sessionStatus ?? 'unknown').($reason === null ? '' : ", {$reason}").')',
+            409,
+            $sessionStatus,
+            reason: $reason,
+            eidError: $eidError,
+        );
     }
 
     public static function answered(string $step, int $status): self

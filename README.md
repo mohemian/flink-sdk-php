@@ -216,6 +216,64 @@ you do not know; new ones are added without a version bump. An `ageOver*` FLINK 
 verified birthdate, rather than read from the issuer, also carries `derivedAsOf`, the day it holds as
 of: `$results->derivedAsOf('ageOver18')` returns it, or null for an issuer's own value.
 
+### Send a person straight to their eID
+
+Needs flink-services with FLNK-1182 (mohemian/flink-services#1483 and #1486), and a credential with
+the `flow-session:write` scope: a journey API key has it; a `private_key_jwt` client registered for
+results only gets `403`, as for `fetchCountries()`. Your page asks for the person's country and eID
+(`fetchCountries()`), your backend starts a session there, and the person follows a FLINK link
+straight to that eID's login, with no FLINK screen. FLINK runs the journey's remaining steps itself
+(today only a sanctions check qualifies) and sends the person to the journey's return link. Your
+backend then confirms the return and fetches the result:
+
+```php
+use Mohemian\Flink\Exceptions\SessionRefused;
+
+// POST /verify/start   (the person is logged in to your site)
+try {
+    $session = Flink::startSession($journey, $country, $eidEntry, $request->ip(), $request->userAgent());
+} catch (SessionRefused $e) {
+    // $e->reason: 'unknown_country', 'unknown_eid_entry', 'eid_entry_not_redirect' (e.g. Swedish BankID),
+    // 'journey_needs_interaction' ($e->step names the step), 'no_return_link', 'journey_not_runnable'
+    return back()->withErrors(['eid' => 'This eID cannot be used here. Please choose another.']);
+}
+$request->user()->update(['flink_session' => $session->sessionId]);  // keep it with your user
+return redirect()->away($session->url);
+
+// GET /flink-return?flink_return_code=…   (your journey's return link)
+$sessionId = $request->user()->flink_session;                      // never from the URL
+if (Flink::completeReturn($sessionId, (string) $request->query('flink_return_code'))) {
+    $results = Flink::fetchResult($sessionId);                     // givenName, birthdate, sanctionsMatchFound, …
+}
+```
+
+**Confirm only your own user's session.** Look up the session id you stored for the user logged in
+on the return request; never take it from the URL. A link can be forwarded, and whoever opens it
+signs in with their own eID: the return code reaches only the browser that finished the login, so
+redeeming it only for the session your logged-in user started is what stops someone from sending
+their link to another person and receiving that person's identity. FLINK cannot check this for you.
+
+**When the person comes back where you do not know them.** The return link must find your login
+cookie on a cross-site redirect from FLINK, so it needs `SameSite=Lax` (Laravel's default), not
+`strict`. A person who finished in another browser (an in-app browser, a QR code on another device)
+arrives without your session: log them in there before confirming, or start a new session. The code
+lives five minutes and is issued once.
+
+Once your start page shows the journey's applicant notice, attest it on the start with
+`notice: ['revision' => …, 'locale' => …]`: the `revision` FLINK served and the BCP 47 locale you
+showed it in. FLINK does not require it yet (FLNK-1184).
+
+`startSession()` throws `SessionRefused` with FLINK's reason, or `ResultUnavailable` (404 a journey
+your credential may not start, 429 too many starts, 403 a client without `flow-session:write` or one
+that is not a relying party's backend). The link opens for 15 minutes, to retry a failed or cancelled login, and never once the
+eID has succeeded. `completeReturn()` is true when FLINK released the result (again on a reload) and
+false for a wrong, expired or foreign code (start a new session). It throws `ResultUnavailable` when
+FLINK could not be asked: keep the code and let the person retry the same return URL. Until then, `fetchResult()` throws `ResultUnavailable`
+with status 409 and a `reason`: `awaiting_return` (confirm first), `eid_failed` (with `eidError`;
+opening the link again retries), `sanctions_unavailable`, `return_expired` or `link_expired`. Decide
+from `sessionStatus` alone whether to ask again: `aborted` is final. FLINK deletes the person's data
+from a session whose return was never confirmed.
+
 ## Testing your app
 
 `Flink::fake()` verifies against a key generated for the test, and signs assertions your config
