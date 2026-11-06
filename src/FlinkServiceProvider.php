@@ -23,7 +23,7 @@ final class FlinkServiceProvider extends ServiceProvider
             return new JwksKeySet(
                 $app->make(Http::class),
                 $app['cache']->store($config['cache']['store'] ?? null),
-                $config['jwks_url'] ?? $this->url($config).'/client/v1/.well-known/flow-results-jwks.json',
+                $config['jwks_url'] ?? $this->apiHost($config).'/client/v1/.well-known/flow-results-jwks.json',
                 (string) ($config['cache']['key'] ?? 'flink:jwks'),
                 (int) ($config['cache']['ttl'] ?? 86400),
             );
@@ -31,12 +31,12 @@ final class FlinkServiceProvider extends ServiceProvider
         // Not a singleton: it is cheap, and `Flink::fake()` swaps the KeySet it is built with.
         $this->app->bind(Verifier::class, fn ($app): Verifier => new Verifier(
             $app->make(KeySet::class),
-            $this->url($app['config']['flink']),
+            $this->apiHost($app['config']['flink']),
             (string) ($app['config']['flink.tenant_id'] ?: throw MissingConfiguration::for('FLINK_TENANT_ID')),
         ));
         $this->app->bind(ResultClient::class, function ($app): ResultClient {
             $config = $app['config']['flink'];
-            $url = $this->url($config);
+            $url = $this->apiHost($config);
             $tenantId = (string) ($config['tenant_id'] ?: throw MissingConfiguration::for('FLINK_TENANT_ID'));
             // Per FLINK, tenant and client: apps sharing a cache store (stage and production on one
             // Redis) must never pick up each other's token.
@@ -81,7 +81,7 @@ final class FlinkServiceProvider extends ServiceProvider
             $this->commands([Commands\InstallCommand::class, Commands\ClearKeysCommand::class, Commands\ClientKeyCommand::class]);
             if (class_exists(AboutCommand::class)) {
                 AboutCommand::add('FLINK', fn (): array => [
-                    'URL' => config('flink.url'),
+                    'API host' => $this->apiHost((array) config('flink')),
                     'Tenant' => config('flink.tenant_id') ?: '<fg=yellow;options=bold>NOT SET</>',
                     'Journeys' => (string) (is_array($journeys = config('flink.prefill.journeys')) ? implode(',', $journeys) : $journeys),
                     'Events' => config('flink.events') ? 'ENABLED' : 'OFF',
@@ -90,9 +90,17 @@ final class FlinkServiceProvider extends ServiceProvider
         }
     }
 
-    /** @param array<string, mixed> $config */
-    private function url(array $config): string
+    /** The stage FLINK, used when neither FLINK_API_HOST nor its deprecated FLINK_URL is set. */
+    public const DEFAULT_API_HOST = 'https://flink-services.mohemian.rocks';
+
+    /**
+     * FLINK_API_HOST (or the deprecated FLINK_URL), else the `url` key of a config/flink.php published
+     * before FLNK-1191, else the stage FLINK.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function apiHost(array $config): string
     {
-        return rtrim((string) $config['url'], '/');
+        return rtrim((string) (($config['api_host'] ?? null) ?: (($config['url'] ?? null) ?: self::DEFAULT_API_HOST)), '/');
     }
 }
