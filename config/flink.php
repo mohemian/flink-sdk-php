@@ -3,11 +3,14 @@
 declare(strict_types=1);
 
 return [
-    // Base URL of flink-services. It must equal FLINK's issuer: the expected `iss` of every assertion and
-    // the `aud` of the client assertion that fetches a result. The JWKS is served under it.
-    'url' => env('FLINK_URL', 'https://flink-services.mohemian.rocks'),
+    // FLINK's API host, as a bare origin (default the stage FLINK, https://flink-services.mohemian.rocks).
+    // It must equal FLINK's issuer: the expected `iss` of every assertion and the `aud` of the client
+    // assertion that fetches a result. The JWKS is served under it. FLINK_URL is its deprecated name,
+    // still read when FLINK_API_HOST is unset; so is a `url` key in a config/flink.php published
+    // before 0.5 (FLNK-1191). No default here, so such a published `url` is never shadowed.
+    'api_host' => env('FLINK_API_HOST', env('FLINK_URL')),
 
-    // Where FLINK's signing keys are fetched from. Defaults to the flow-results JWKS under `url`.
+    // Where FLINK's signing keys are fetched from. Defaults to the flow-results JWKS under `api_host`.
     'jwks_url' => env('FLINK_JWKS_URL'),
 
     // Your tenant, as on the console's Start & integrate tab. Every assertion must carry it.
