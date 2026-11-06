@@ -5,6 +5,22 @@
   ],
   "packageRules": [
     {
+      "description": "Policy: minor and patch updates auto-merge (squash) after the 3-day soak; majors never do.",
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Policy: digest and pinDigest updates auto-merge (squash).",
+      "matchUpdateTypes": [
+        "digest",
+        "pinDigest"
+      ],
+      "automerge": true
+    },
+    {
       "description": "Group minor and patch dependency updates into one pull request",
       "matchUpdateTypes": [
         "minor",
@@ -19,7 +35,15 @@
         "major"
       ],
       "groupName": null,
-      "groupSlug": null
+      "groupSlug": null,
+      "automerge": false
     }
-  ]
+  ],
+  "dependencyDashboard": true,
+  "minimumReleaseAge": "3d",
+  "minimumReleaseAgeBehaviour": "timestamp-required",
+  "internalChecksFilter": "strict",
+  "automerge": false,
+  "automergeType": "pr",
+  "automergeStrategy": "squash"
 }
