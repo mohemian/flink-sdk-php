@@ -14,6 +14,14 @@
       "autoApprove": true
     },
     {
+      "description": "Policy: digest and pinDigest updates auto-merge (no auto-approve).",
+      "matchUpdateTypes": [
+        "digest",
+        "pinDigest"
+      ],
+      "automerge": true
+    },
+    {
       "description": "Group minor and patch dependency updates into one pull request",
       "matchUpdateTypes": [
         "minor",
