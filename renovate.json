@@ -5,6 +5,15 @@
   ],
   "packageRules": [
     {
+      "description": "Policy: minor and patch updates auto-approve and auto-merge (squash); majors never do.",
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true,
+      "autoApprove": true
+    },
+    {
       "description": "Group minor and patch dependency updates into one pull request",
       "matchUpdateTypes": [
         "minor",
@@ -19,7 +28,17 @@
         "major"
       ],
       "groupName": null,
-      "groupSlug": null
+      "groupSlug": null,
+      "automerge": false,
+      "autoApprove": false
     }
-  ]
+  ],
+  "dependencyDashboard": true,
+  "minimumReleaseAge": "3d",
+  "minimumReleaseAgeBehaviour": "timestamp-required",
+  "internalChecksFilter": "strict",
+  "automerge": false,
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
+  "autoApprove": false
 }
