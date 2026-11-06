@@ -36,8 +36,7 @@
       ],
       "groupName": null,
       "groupSlug": null,
-      "automerge": false,
-      "autoApprove": false
+      "automerge": false
     }
   ],
   "dependencyDashboard": true,
@@ -46,6 +45,5 @@
   "internalChecksFilter": "strict",
   "automerge": false,
   "automergeType": "pr",
-  "automergeStrategy": "squash",
-  "autoApprove": false
+  "automergeStrategy": "squash"
 }
