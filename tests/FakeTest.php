@@ -54,7 +54,7 @@ it('no longer accepts tokens signed by the real keys once faked', function (): v
 })->throws(InvalidSignature::class, 'Unknown key id k1');
 
 it('needs no configuration for a claim the test supplies', function (): void {
-    config(['flink.journey_id' => null, 'flink.results.audience' => null]);
+    config(['flink.prefill.journeys' => null, 'flink.results.audience' => null]);
     $fake = Flink::fake();
 
     $prefill = $fake->prefill(claims: ['journey' => 'J1']);

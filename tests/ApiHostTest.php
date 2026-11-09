@@ -94,16 +94,3 @@ it('accepts an https FLINK_JWKS_URL with a path, and http on loopback', function
     'https' => ['https://keys.test/.well-known/jwks.json'],
     'loopback http' => ['http://localhost:3000/jwks.json'],
 ]);
-
-it('reads FLINK_JOURNEY_ID into journey_id, and the deprecated FLINK_JOURNEYS into prefill.journeys', function (): void {
-    $config = fn (): array => require __DIR__.'/../config/flink.php';
-    putenv('FLINK_JOURNEYS=OLDJOURNEY01');
-    putenv('FLINK_JOURNEY_ID=SCD7DDPK258G,WAE67ZF4XNAT');
-    try {
-        expect($config()['journey_id'])->toBe('SCD7DDPK258G,WAE67ZF4XNAT')
-            ->and($config()['prefill']['journeys'])->toBe('OLDJOURNEY01');
-    } finally {
-        putenv('FLINK_JOURNEYS');
-        putenv('FLINK_JOURNEY_ID');
-    }
-});

@@ -41,7 +41,7 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
 
         return [
             'aud' => fn (): string => self::origin((string) ($config('audience') ?: $app->make('config')->get('app.url'))),
-            'journeys' => fn (): array => self::acceptedJourneys($app->make('config')) ?: throw MissingConfiguration::for('FLINK_JOURNEY_ID'),
+            'journeys' => fn (): array => self::list($config('journeys')) ?: throw MissingConfiguration::for('FLINK_JOURNEYS'),
             'methods' => fn (): array => array_values((array) $config('allowed_methods')),
             'reference' => fn (): ?string => $app->make(Flink::class)->currentReference(),
         ];

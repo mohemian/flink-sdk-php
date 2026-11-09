@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Mohemian\Flink\Commands;
 
 use Illuminate\Console\Command;
-use Mohemian\Flink\Assertions\Assertion;
 
 final class InstallCommand extends Command
 {
@@ -21,7 +20,7 @@ final class InstallCommand extends Command
         $config = (array) config('flink');
         $variables = [
             'FLINK_TENANT_ID' => ['required', $config['tenant_id'] ?? null],
-            'FLINK_JOURNEY_ID' => ['required for prefills and results; several comma-separated', implode(',', Assertion::acceptedJourneys(config())) ?: null],
+            'FLINK_JOURNEYS' => ['required for prefills and results', $config['prefill']['journeys'] ?? null],
             'FLINK_RESULTS_AUDIENCE' => ['required for results, unless FLINK_API_KEY is set', $config['results']['audience'] ?? null],
             'FLINK_API_KEY' => ['to fetch results with a journey API key, from the journey\'s Start tab', $config['results']['api_key'] ?? null],
             'FLINK_CLIENT_KEY' => ['or, instead of FLINK_API_KEY: php artisan flink:client-key', $config['results']['client_key'] ?? null],

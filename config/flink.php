@@ -13,14 +13,6 @@ return [
     // Where FLINK's signing keys are fetched from. Defaults to the flow-results JWKS under `api_host`.
     'jwks_url' => env('FLINK_JWKS_URL'),
 
-    // The journeys whose prefill and results you accept: their public ids, as on the console's journey
-    // config (FLINK_JOURNEY_ID). Several are comma-separated (or an array here). Required: any tenant can
-    // list your origin as an allowed origin, so `aud` alone is not enough. Unset, the deprecated
-    // `prefill.journeys` (FLINK_JOURNEYS) below is read instead (FLNK-1191). Top level on purpose:
-    // Laravel merges a published config only at the top level, so this key reaches a config/flink.php
-    // published before 0.5 too.
-    'journey_id' => env('FLINK_JOURNEY_ID'),
-
     // Your tenant, as on the console's Start & integrate tab. Every assertion must carry it.
     'tenant_id' => env('FLINK_TENANT_ID'),
 
@@ -30,7 +22,9 @@ return [
         // Compared as a browser Origin: lowercased, without a path or a default port.
         'audience' => env('FLINK_AUDIENCE'),
 
-        // Deprecated: set `journey_id` (FLINK_JOURNEY_ID) above. Read only while that is unset.
+        // The journeys whose prefill and results you accept: their public ids, comma-separated, as on the
+        // console's Start & integrate tab. Required: any tenant can list your origin as an allowed
+        // origin, so `aud` alone is not enough.
         'journeys' => env('FLINK_JOURNEYS'),
 
         // The onboarding methods whose data you accept as verified. `eid` is any eID provider route

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mohemian\Flink\Assertions;
 
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
 use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
@@ -97,18 +96,7 @@ abstract class Assertion
     }
 
     /**
-     * The journeys whose prefill and results are accepted: `journey_id` (FLINK_JOURNEY_ID), else the
-     * deprecated `prefill.journeys` (FLINK_JOURNEYS). Empty when neither is set.
-     *
-     * @return list<string>
-     */
-    public static function acceptedJourneys(Repository $config): array
-    {
-        return self::list($config->get('flink.journey_id')) ?: self::list($config->get('flink.prefill.journeys'));
-    }
-
-    /**
-     * FLINK_JOURNEY_ID is a comma-separated string; a published config may hold an array instead.
+     * `FLINK_JOURNEYS` is a comma-separated string; a published config may hold an array instead.
      *
      * @return list<string>
      */
