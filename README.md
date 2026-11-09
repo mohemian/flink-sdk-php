@@ -298,7 +298,7 @@ Flink::fetchResult($sessionId);                               // answered withou
 config key `url` becomes `api_host`. Nothing breaks: `FLINK_URL` is still read when `FLINK_API_HOST` is
 unset, and so is the `url` key of a `config/flink.php` you published earlier, but both are deprecated
 and will go in a later release. Rename the variable in your `.env`, and in a published config replace
-`'url' => env('FLINK_URL', …)` with `'api_host' => env('FLINK_API_HOST')`. `php artisan about` now
+`'url' => env('FLINK_URL', …)` with `'api_host' => env('FLINK_API_HOST', env('FLINK_URL'))`. `php artisan about` now
 shows the host it resolved as "API host".
 
 ## Upgrading from 0.2

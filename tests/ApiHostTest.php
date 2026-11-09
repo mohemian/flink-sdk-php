@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Mohemian\Flink\Exceptions\MissingConfiguration;
 use Mohemian\Flink\Exceptions\ResultUnavailable;
 use Mohemian\Flink\Facades\Flink;
 use Mohemian\Flink\FlinkServiceProvider;
@@ -37,3 +38,35 @@ it('reads the deprecated FLINK_URL when FLINK_API_HOST is unset', function (): v
         putenv('FLINK_API_HOST');
     }
 });
+
+it('accepts a bare https origin, or http on loopback', function (string $apiHost, string $expected): void {
+    config(['flink.api_host' => $apiHost, 'flink.tenant_id' => 't', 'flink.results.api_key' => 'flk_abc']);
+    Http::fake(['*' => Http::response(['error' => 'invalid_client'], 401)]);
+
+    expect(fn () => Flink::fetchResult(TestCase::SESSION))->toThrow(ResultUnavailable::class);
+    Http::assertSent(fn (Request $request): bool => str_starts_with($request->url(), $expected.'/client/v1/'));
+})->with([
+    'https' => ['https://api.demo.test', 'https://api.demo.test'],
+    'trailing slash' => ['https://api.demo.test/', 'https://api.demo.test'],
+    'https with a port' => ['https://api.demo.test:8443', 'https://api.demo.test:8443'],
+    'localhost' => ['http://localhost:3000', 'http://localhost:3000'],
+    'loopback v4' => ['http://127.0.0.1:3000', 'http://127.0.0.1:3000'],
+    'loopback v6' => ['http://[::1]:3000', 'http://[::1]:3000'],
+]);
+
+it('refuses an API host that is not a bare https origin', function (string $apiHost): void {
+    config(['flink.api_host' => $apiHost, 'flink.tenant_id' => 't', 'flink.results.api_key' => 'flk_abc']);
+    Http::fake();
+
+    expect(fn () => Flink::fetchResult(TestCase::SESSION))->toThrow(MissingConfiguration::class, 'FLINK_API_HOST');
+    Http::assertNothingSent();
+})->with([
+    'http, not loopback' => ['http://api.demo.test'],
+    'no scheme' => ['api.demo.test'],
+    'a path' => ['https://api.demo.test/client/v1'],
+    'userinfo' => ['https://user:pw@api.demo.test'],
+    'userinfo hiding the host' => ['https://api.demo.test@evil.test'],
+    'a query' => ['https://api.demo.test?x=1'],
+    'a fragment' => ['https://api.demo.test#x'],
+    'another scheme' => ['ftp://api.demo.test'],
+]);

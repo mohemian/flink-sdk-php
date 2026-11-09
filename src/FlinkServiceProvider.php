@@ -81,7 +81,7 @@ final class FlinkServiceProvider extends ServiceProvider
             $this->commands([Commands\InstallCommand::class, Commands\ClearKeysCommand::class, Commands\ClientKeyCommand::class]);
             if (class_exists(AboutCommand::class)) {
                 AboutCommand::add('FLINK', fn (): array => [
-                    'API host' => $this->apiHost((array) config('flink')),
+                    'API host' => rescue(fn (): string => $this->apiHost((array) config('flink')), '<fg=yellow;options=bold>INVALID</>', false),
                     'Tenant' => config('flink.tenant_id') ?: '<fg=yellow;options=bold>NOT SET</>',
                     'Journeys' => (string) (is_array($journeys = config('flink.prefill.journeys')) ? implode(',', $journeys) : $journeys),
                     'Events' => config('flink.events') ? 'ENABLED' : 'OFF',
@@ -101,6 +101,17 @@ final class FlinkServiceProvider extends ServiceProvider
      */
     private function apiHost(array $config): string
     {
-        return rtrim((string) (($config['api_host'] ?? null) ?: (($config['url'] ?? null) ?: self::DEFAULT_API_HOST)), '/');
+        $host = rtrim((string) (($config['api_host'] ?? null) ?: (($config['url'] ?? null) ?: self::DEFAULT_API_HOST)), '/');
+        $parts = parse_url($host);
+        $loopback = in_array($parts['host'] ?? '', ['localhost', '127.0.0.1', '[::1]'], true);
+        // A bare origin over https (http only for loopback): the key fetch and the client assertion
+        // must never go out in cleartext, nor to a host smuggled in through userinfo or a path.
+        if ($parts === false || ! in_array($parts['scheme'] ?? '', $loopback ? ['https', 'http'] : ['https'], true)
+            || ($parts['host'] ?? '') === '' || array_diff(array_keys($parts), ['scheme', 'host', 'port'])
+            || preg_match('/[\\\\\s@?#]/', $host)) {
+            throw new MissingConfiguration('Set FLINK_API_HOST to a bare https origin such as https://flink-services.mohemian.rocks (http only for localhost)');
+        }
+
+        return $host;
     }
 }
