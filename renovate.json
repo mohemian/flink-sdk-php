@@ -5,6 +5,38 @@
   ],
   "packageRules": [
     {
+      "description": "Policy: minor and patch updates auto-merge (squash) after the 3-day soak; majors never do.",
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Policy: GitHub Actions digest and pinDigest updates never auto-merge; they keep the 3-day soak (where a timestamp exists) and need review.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "digest",
+        "pinDigest"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Update types that carry no release timestamp (digest, pin, replacement, bump, rollback, lockFileMaintenance) use the age gate only when a timestamp exists, so strict mode does not block them forever.",
+      "matchUpdateTypes": [
+        "digest",
+        "pin",
+        "pinDigest",
+        "replacement",
+        "bump",
+        "rollback",
+        "lockFileMaintenance"
+      ],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
       "description": "Group minor and patch dependency updates into one pull request",
       "matchUpdateTypes": [
         "minor",
@@ -19,7 +51,16 @@
         "major"
       ],
       "groupName": null,
-      "groupSlug": null
+      "groupSlug": null,
+      "automerge": false
     }
-  ]
+  ],
+  "dependencyDashboard": true,
+  "minimumReleaseAge": "3d",
+  "minimumReleaseAgeBehaviour": "timestamp-required",
+  "internalChecksFilter": "strict",
+  "automerge": false,
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
+  "platformAutomerge": false
 }
