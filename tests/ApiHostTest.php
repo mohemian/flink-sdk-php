@@ -70,3 +70,27 @@ it('refuses an API host that is not a bare https origin', function (string $apiH
     'a fragment' => ['https://api.demo.test#x'],
     'another scheme' => ['ftp://api.demo.test'],
 ]);
+
+it('refuses a FLINK_JWKS_URL that would fetch the keys in cleartext or through userinfo', function (string $jwksUrl): void {
+    config(['flink.jwks_url' => $jwksUrl]);
+    Http::fake();
+
+    expect(fn () => Flink::prefill('x.y.z', TestCase::REF))->toThrow(MissingConfiguration::class, 'FLINK_JWKS_URL');
+    Http::assertNothingSent();
+})->with([
+    'http, not loopback' => ['http://keys.test/jwks.json'],
+    'userinfo' => ['https://user:pw@keys.test/jwks.json'],
+    'userinfo hiding the host' => ['https://keys.test@evil.test/jwks.json'],
+    'no scheme' => ['keys.test/jwks.json'],
+]);
+
+it('accepts an https FLINK_JWKS_URL with a path, and http on loopback', function (string $jwksUrl): void {
+    config(['flink.jwks_url' => $jwksUrl]);
+    Http::fake([$jwksUrl => Http::response(['keys' => [TestCase::key('k1')['jwk']]])]);
+
+    Flink::prefill($this->jwt([]), TestCase::REF);
+    Http::assertSent(fn (Request $request): bool => $request->url() === $jwksUrl);
+})->with([
+    'https' => ['https://keys.test/.well-known/jwks.json'],
+    'loopback http' => ['http://localhost:3000/jwks.json'],
+]);

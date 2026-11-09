@@ -23,7 +23,7 @@ final class FlinkServiceProvider extends ServiceProvider
             return new JwksKeySet(
                 $app->make(Http::class),
                 $app['cache']->store($config['cache']['store'] ?? null),
-                $config['jwks_url'] ?? $this->apiHost($config).'/client/v1/.well-known/flow-results-jwks.json',
+                ($config['jwks_url'] ?? null) ? $this->jwksUrl((string) $config['jwks_url']) : $this->apiHost($config).'/client/v1/.well-known/flow-results-jwks.json',
                 (string) ($config['cache']['key'] ?? 'flink:jwks'),
                 (int) ($config['cache']['ttl'] ?? 86400),
             );
@@ -102,16 +102,30 @@ final class FlinkServiceProvider extends ServiceProvider
     private function apiHost(array $config): string
     {
         $host = rtrim((string) (($config['api_host'] ?? null) ?: (($config['url'] ?? null) ?: self::DEFAULT_API_HOST)), '/');
-        $parts = parse_url($host);
-        $loopback = in_array($parts['host'] ?? '', ['localhost', '127.0.0.1', '[::1]'], true);
-        // A bare origin over https (http only for loopback): the key fetch and the client assertion
-        // must never go out in cleartext, nor to a host smuggled in through userinfo or a path.
-        if ($parts === false || ! in_array($parts['scheme'] ?? '', $loopback ? ['https', 'http'] : ['https'], true)
-            || ($parts['host'] ?? '') === '' || array_diff(array_keys($parts), ['scheme', 'host', 'port'])
-            || preg_match('/[\\\\\s@?#]/', $host)) {
+        // A bare origin: no path, query or fragment to hide another host behind.
+        if (! $this->isSecureUrl($host) || array_diff(array_keys(parse_url($host) ?: []), ['scheme', 'host', 'port']) || preg_match('/[?#]/', $host)) {
             throw new MissingConfiguration('Set FLINK_API_HOST to a bare https origin such as https://flink-services.mohemian.rocks (http only for localhost)');
         }
 
         return $host;
+    }
+
+    /** FLINK_JWKS_URL: the same https-only rule as the API host, but a path is its point. */
+    private function jwksUrl(string $url): string
+    {
+        return $this->isSecureUrl($url) ? $url
+            : throw new MissingConfiguration('Set FLINK_JWKS_URL to an https URL without userinfo (http only for localhost)');
+    }
+
+    /** https with a host and no userinfo; http only for loopback. The key fetch and the client assertion must never go out in cleartext. */
+    private function isSecureUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+        $host = $parts['host'] ?? '';
+        $loopback = in_array($host, ['localhost', '127.0.0.1', '[::1]'], true);
+
+        return $parts !== false && $host !== '' && ! isset($parts['user']) && ! isset($parts['pass'])
+            && in_array($parts['scheme'] ?? '', $loopback ? ['https', 'http'] : ['https'], true)
+            && ! preg_match('/[\\\\\s]/', $url);
     }
 }
