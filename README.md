@@ -297,7 +297,8 @@ Flink::fetchResult($sessionId);                               // answered withou
 1.0 renames `FLINK_JOURNEYS` to `FLINK_JOURNEY_ID`, the name the console's journey page and FLINK's
 backend guides use. `FLINK_JOURNEYS` is no longer read: rename it in your `.env`. It still takes
 several journeys, comma-separated. A `config/flink.php` you published before 1.0 still reads
-`FLINK_JOURNEYS` under `prefill.journeys`: change that `env()` call too, or publish it again.
+`FLINK_JOURNEYS` under `prefill.journeys`: change that `env()` call too, or overwrite it with
+`php artisan vendor:publish --tag=flink-config --force` (`flink:install` leaves an existing file alone).
 
 ## Upgrading from 0.2
 
