@@ -90,18 +90,34 @@ it('verifies a JWT from any configured journey', function (): void {
         ->and(fn () => Flink::prefill($this->jwt(['journey' => 'OTHERJOURNEY']), TestCase::REF))->toThrow(InvalidAssertion::class);
 });
 
-it('reads FLINK_JOURNEYS as a comma-separated list', function (): void {
+it('reads FLINK_JOURNEY_ID as a comma-separated list', function (): void {
     config(['flink.prefill.journeys' => ' SCD7DDPK258G, WAE67ZF4XNAT ,']);
 
     expect(Flink::prefill($this->jwt(['journey' => 'WAE67ZF4XNAT']), TestCase::REF)->journey)->toBe('WAE67ZF4XNAT')
         ->and(Flink::prefill($this->jwt([]), TestCase::REF)->journey)->toBe(TestCase::JOURNEY);
 });
 
+// 1.0 drops FLINK_JOURNEYS: the console hands out FLINK_JOURNEY_ID, and a leftover old name must not
+// keep accepting journeys nobody configured any more (FLNK-1191).
+it('reads the journeys from FLINK_JOURNEY_ID, and no longer from FLINK_JOURNEYS', function (): void {
+    putenv('FLINK_JOURNEYS=OLDJOURNEY01');
+    try {
+        putenv('FLINK_JOURNEY_ID=SCD7DDPK258G,WAE67ZF4XNAT');
+        expect((require __DIR__.'/../config/flink.php')['prefill']['journeys'])->toBe('SCD7DDPK258G,WAE67ZF4XNAT');
+
+        putenv('FLINK_JOURNEY_ID');
+        expect((require __DIR__.'/../config/flink.php')['prefill']['journeys'])->toBeNull();
+    } finally {
+        putenv('FLINK_JOURNEYS');
+        putenv('FLINK_JOURNEY_ID');
+    }
+});
+
 it('requires at least one journey', function (mixed $journeys): void {
     config(['flink.prefill.journeys' => $journeys]);
 
     Flink::prefill($this->jwt([]), TestCase::REF);
-})->throws(MissingConfiguration::class, 'Set FLINK_JOURNEYS')->with(['unset' => [null], 'empty' => ['']]);
+})->throws(MissingConfiguration::class, 'Set FLINK_JOURNEY_ID')->with(['unset' => [null], 'empty' => ['']]);
 
 it('does not treat missing configuration as a rejected token', function (): void {
     config(['flink.prefill.journeys' => ' , ']);

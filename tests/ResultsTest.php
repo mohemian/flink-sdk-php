@@ -58,7 +58,7 @@ it('requires the journeys a result may come from', function (): void {
     config(['flink.prefill.journeys' => null]);
 
     Flink::results($this->resultsJwt());
-})->throws(MissingConfiguration::class, 'Set FLINK_JOURNEYS');
+})->throws(MissingConfiguration::class, 'Set FLINK_JOURNEY_ID');
 
 it('says which attribute FLINK derived, and as of which day', function (): void {
     $results = Flink::results($this->resultsJwt(['attributes' => [
