@@ -292,7 +292,7 @@ $fake->serveResults(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:
 Flink::fetchResult($sessionId);                               // answered without FLINK, no key needed
 ```
 
-## Upgrading to 1.0
+## Upgrading from 0.4 to 1.0
 
 1.0 renames `FLINK_JOURNEYS` to `FLINK_JOURNEY_ID`, the name the console's journey page and FLINK's
 backend guides use. `FLINK_JOURNEYS` is no longer read: rename it in your `.env`. It still takes
@@ -300,9 +300,7 @@ several journeys, comma-separated. A `config/flink.php` you published before 1.0
 `FLINK_JOURNEYS` under `prefill.journeys`: change that `env()` call too, or overwrite it with
 `php artisan vendor:publish --tag=flink-config --force` (`flink:install` leaves an existing file alone).
 
-## Upgrading from 0.4
-
-0.5 renames FLINK's host to the **API host** (FLNK-1191): `FLINK_URL` becomes `FLINK_API_HOST`, and the
+1.0 also renames FLINK's host to the **API host** (FLNK-1191): `FLINK_URL` becomes `FLINK_API_HOST`, and the
 config key `url` becomes `api_host`. Nothing breaks: `FLINK_URL` is still read when `FLINK_API_HOST` is
 unset, and so is the `url` key of a `config/flink.php` you published earlier, but both are deprecated
 and will go in a later release. Rename the variable in your `.env`, and in a published config replace
