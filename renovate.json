@@ -13,12 +13,28 @@
       "automerge": true
     },
     {
-      "description": "Policy: digest and pinDigest updates auto-merge (squash).",
+      "description": "Policy: GitHub Actions digest and pinDigest updates never auto-merge; they keep the 3-day soak (where a timestamp exists) and need review.",
+      "matchManagers": [
+        "github-actions"
+      ],
       "matchUpdateTypes": [
         "digest",
         "pinDigest"
       ],
-      "automerge": true
+      "automerge": false
+    },
+    {
+      "description": "Update types that carry no release timestamp (digest, pin, replacement, bump, rollback, lockFileMaintenance) use the age gate only when a timestamp exists, so strict mode does not block them forever.",
+      "matchUpdateTypes": [
+        "digest",
+        "pin",
+        "pinDigest",
+        "replacement",
+        "bump",
+        "rollback",
+        "lockFileMaintenance"
+      ],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     {
       "description": "Group minor and patch dependency updates into one pull request",
@@ -45,5 +61,6 @@
   "internalChecksFilter": "strict",
   "automerge": false,
   "automergeType": "pr",
-  "automergeStrategy": "squash"
+  "automergeStrategy": "squash",
+  "platformAutomerge": false
 }
