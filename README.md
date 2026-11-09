@@ -20,7 +20,7 @@ PHP 8.2+ (8.3+ for Laravel 13), Laravel 12 or 13, `ext-intl`, `ext-openssl`.
 ```dotenv
 FLINK_TENANT_ID=…   # the console's journey page, "Start & integrate"
 FLINK_JOURNEY_ID=…  # the journey's public id, same place; several comma-separated
-# FLINK_URL=https://flink-services.mohemian.rocks  (default)
+# FLINK_API_HOST=https://flink-services.mohemian.rocks  (default; FLINK_URL still works, deprecated)
 # FLINK_AUDIENCE=https://www.example.at            (default: APP_URL's origin)
 # FLINK_API_KEY=flk_…                              (to fetch results: the journey's API key, from its Start tab)
 # or, instead of the API key:
@@ -75,7 +75,7 @@ $rule->assertion->data;
 - signed by FLINK: RS256 only, key chosen by `kid` from FLINK's JWKS (cached a day, refetched at most
   once a minute for an unknown `kid`), header `typ` = `flow-prefill+jwt`; otherwise
   `InvalidSignature`, or `InvalidAssertion` for another `typ`
-- `iss` = `FLINK_URL`, `aud` = your page's origin, not expired, `ver` = 1 (`iat` and `exp` allow
+- `iss` = `FLINK_API_HOST`, `aud` = your page's origin, not expired, `ver` = 1 (`iat` and `exp` allow
   5 seconds of clock skew)
 - `tenant_id` is yours and `journey` is one of `FLINK_JOURNEY_ID`: any FLINK tenant can register your
   origin, so `aud` alone is not enough
@@ -87,7 +87,7 @@ $rule->assertion->data;
 Everything but the signature is an `InvalidAssertion`. Two failures are deliberately not a
 `FlinkException`, because a broken setup should fail loudly rather than refuse every applicant
 quietly: `MissingConfiguration` for an unset variable, and `KeysUnavailable` when FLINK's keys cannot
-be fetched (a wrong `FLINK_URL`, or an outage).
+be fetched (a wrong `FLINK_API_HOST`, or an outage).
 
 A journey with no identity step (email only, say) issues a JWT without `method`, and the prefill is
 refused. That is deliberate: nothing in such a JWT is identity-backed, the email address included,
@@ -201,7 +201,7 @@ key reads only its own journey, a client only its tenant's).
 Fetched some other way, FLINK answers `{ "signedResult": "<jwt>" }`, and `Flink::results()` verifies
 that JWT: ES256 only (the same JWKS serves
 the prefill's RS256 key, which is refused here), header `typ` = `flink-result+jwt`, `iss` =
-`FLINK_URL`, `aud` is or contains `FLINK_RESULTS_AUDIENCE` (FLINK signs each result for the client id that fetched
+`FLINK_API_HOST`, `aud` is or contains `FLINK_RESULTS_AUDIENCE` (FLINK signs each result for the client id that fetched
 it), `tenantId` is yours, `journeyId` is one of `FLINK_JOURNEY_ID` (`aud` names no journey, so this is
 what keeps a result from your other journey out), and `ver` = 1. Pass the session you fetched it for,
 `Flink::results($jwt, $sessionId)`, and a result for another session is refused too. It has no `exp`: it records a fact, so a result you keep stays
@@ -299,6 +299,15 @@ backend guides use. `FLINK_JOURNEYS` is no longer read: rename it in your `.env`
 several journeys, comma-separated. A `config/flink.php` you published before 1.0 still reads
 `FLINK_JOURNEYS` under `prefill.journeys`: change that `env()` call too, or overwrite it with
 `php artisan vendor:publish --tag=flink-config --force` (`flink:install` leaves an existing file alone).
+
+## Upgrading from 0.4
+
+0.5 renames FLINK's host to the **API host** (FLNK-1191): `FLINK_URL` becomes `FLINK_API_HOST`, and the
+config key `url` becomes `api_host`. Nothing breaks: `FLINK_URL` is still read when `FLINK_API_HOST` is
+unset, and so is the `url` key of a `config/flink.php` you published earlier, but both are deprecated
+and will go in a later release. Rename the variable in your `.env`, and in a published config replace
+`'url' => env('FLINK_URL', …)` with `'api_host' => env('FLINK_API_HOST', env('FLINK_URL'))`. `php artisan about` now
+shows the host it resolved as "API host".
 
 ## Upgrading from 0.2
 

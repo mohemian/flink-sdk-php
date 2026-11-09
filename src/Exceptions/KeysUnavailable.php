@@ -3,7 +3,7 @@
 namespace Mohemian\Flink\Exceptions;
 
 /**
- * FLINK's signing keys could not be fetched: a wrong FLINK_URL or FLINK_JWKS_URL, or an outage.
+ * FLINK's signing keys could not be fetched: a wrong FLINK_API_HOST or FLINK_JWKS_URL, or an outage.
  * Deliberately not a FlinkException, so an outage is not reported as every applicant's token being
  * invalid.
  */

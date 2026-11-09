@@ -178,7 +178,7 @@ it('refuses a client key FLINK would not accept: a curve other than P-256, or RS
     'RSA 1024' => [['private_key_type' => OPENSSL_KEYTYPE_RSA, 'private_key_bits' => 1024]],
 ]);
 
-it('keeps a token per tenant and per FLINK url, not only per client', function (string $setting, string $value): void {
+it('keeps a token per tenant and per FLINK API host, not only per client', function (string $setting, string $value): void {
     Flink::fetchResult(TestCase::SESSION);
     config(["flink.{$setting}" => $value]);
     Http::fake(['*' => Http::response(['access_token' => 'other-token', 'expires_in' => 600])]);
@@ -188,5 +188,5 @@ it('keeps a token per tenant and per FLINK url, not only per client', function (
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/client/v1/auth/token'));
 })->with([
     'tenant' => ['tenant_id', 'b0c0c0c0-0000-4000-8000-000000000000'],
-    'url' => ['url', 'https://other-flink.test'],
+    'api host' => ['api_host', 'https://other-flink.test'],
 ]);
