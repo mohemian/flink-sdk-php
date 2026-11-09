@@ -19,7 +19,7 @@ PHP 8.2+ (8.3+ for Laravel 13), Laravel 12 or 13, `ext-intl`, `ext-openssl`.
 
 ```dotenv
 FLINK_TENANT_ID=…   # the console's journey page, "Start & integrate"
-FLINK_JOURNEYS=…    # the journey's public id, same place; several comma-separated
+FLINK_JOURNEY_ID=…  # the journey's public id, same place; several comma-separated
 # FLINK_API_HOST=https://flink-services.mohemian.rocks  (default; FLINK_URL still works, deprecated)
 # FLINK_AUDIENCE=https://www.example.at            (default: APP_URL's origin)
 # FLINK_API_KEY=flk_…                              (to fetch results: the journey's API key, from its Start tab)
@@ -77,7 +77,7 @@ $rule->assertion->data;
   `InvalidSignature`, or `InvalidAssertion` for another `typ`
 - `iss` = `FLINK_API_HOST`, `aud` = your page's origin, not expired, `ver` = 1 (`iat` and `exp` allow
   5 seconds of clock skew)
-- `tenant_id` is yours and `journey` is one of `FLINK_JOURNEYS`: any FLINK tenant can register your
+- `tenant_id` is yours and `journey` is one of `FLINK_JOURNEY_ID`: any FLINK tenant can register your
   origin, so `aud` alone is not enough
 - `method` is one you accept (`prefill.allowed_methods`, default `['eid']`). `eid` is any eID
   provider route (ID Austria, SkIDentity or SK Authentigate); the claim does not say which one
@@ -202,7 +202,7 @@ Fetched some other way, FLINK answers `{ "signedResult": "<jwt>" }`, and `Flink:
 that JWT: ES256 only (the same JWKS serves
 the prefill's RS256 key, which is refused here), header `typ` = `flink-result+jwt`, `iss` =
 `FLINK_API_HOST`, `aud` is or contains `FLINK_RESULTS_AUDIENCE` (FLINK signs each result for the client id that fetched
-it), `tenantId` is yours, `journeyId` is one of `FLINK_JOURNEYS` (`aud` names no journey, so this is
+it), `tenantId` is yours, `journeyId` is one of `FLINK_JOURNEY_ID` (`aud` names no journey, so this is
 what keeps a result from your other journey out), and `ver` = 1. Pass the session you fetched it for,
 `Flink::results($jwt, $sessionId)`, and a result for another session is refused too. It has no `exp`: it records a fact, so a result you keep stays
 verifiable.
@@ -292,6 +292,14 @@ $fake->serveResults(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:
 Flink::fetchResult($sessionId);                               // answered without FLINK, no key needed
 ```
 
+## Upgrading to 1.0
+
+1.0 renames `FLINK_JOURNEYS` to `FLINK_JOURNEY_ID`, the name the console's journey page and FLINK's
+backend guides use. `FLINK_JOURNEYS` is no longer read: rename it in your `.env`. It still takes
+several journeys, comma-separated. A `config/flink.php` you published before 1.0 still reads
+`FLINK_JOURNEYS` under `prefill.journeys`: change that `env()` call too, or overwrite it with
+`php artisan vendor:publish --tag=flink-config --force` (`flink:install` leaves an existing file alone).
+
 ## Upgrading from 0.4
 
 0.5 renames FLINK's host to the **API host** (FLNK-1191): `FLINK_URL` becomes `FLINK_API_HOST`, and the
@@ -327,7 +335,7 @@ API key is a new last argument.
 - `Flink::results()` verifies a `flink-result+jwt` (ES256) instead of a `flow-results+jwt`: read
   `attributes`, `sources`, `journeyId` and `get('givenName')` instead of `results` and
   `get('identity.givenName')`. Set `FLINK_RESULTS_AUDIENCE` to your backend's client id, and
-  `FLINK_JOURNEYS` to the journeys whose results you accept.
+  `FLINK_JOURNEY_ID` to the journeys whose results you accept.
 - `KeySet::key()` takes the expected algorithm as a second argument: a custom key set must return a
   key of exactly that algorithm.
 - `Verifier::claims()` takes the assertion class (`ResultsAssertion::class`) instead of its `typ`.

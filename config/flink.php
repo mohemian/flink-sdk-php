@@ -22,10 +22,10 @@ return [
         // Compared as a browser Origin: lowercased, without a path or a default port.
         'audience' => env('FLINK_AUDIENCE'),
 
-        // The journeys whose prefill and results you accept: their public ids, comma-separated, as on the
-        // console's Start & integrate tab. Required: any tenant can list your origin as an allowed
-        // origin, so `aud` alone is not enough.
-        'journeys' => env('FLINK_JOURNEYS'),
+        // The journey whose prefill and results you accept: its public id, as on the console's journey page.
+        // Several are comma-separated. Required: any tenant can list your origin as an allowed origin, so
+        // `aud` alone is not enough.
+        'journeys' => env('FLINK_JOURNEY_ID'),
 
         // The onboarding methods whose data you accept as verified. `eid` is any eID provider route
         // (ID Austria, SkIDentity or SK Authentigate); the claim does not name the provider.

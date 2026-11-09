@@ -96,7 +96,7 @@ abstract class Assertion
     }
 
     /**
-     * `FLINK_JOURNEYS` is a comma-separated string; a published config may hold an array instead.
+     * `FLINK_JOURNEY_ID` is a comma-separated string; a published config may hold an array instead.
      *
      * @return list<string>
      */

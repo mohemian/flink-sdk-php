@@ -23,6 +23,7 @@ it('publishes the config and names the variables still missing', function (): vo
     try {
         $this->artisan('flink:install')
             ->expectsOutputToContain('FLINK_TENANT_ID')
+            ->expectsOutputToContain('FLINK_JOURNEY_ID')
             ->assertSuccessful();
         expect($published)->toBeFile();
     } finally {
