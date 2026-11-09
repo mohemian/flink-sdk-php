@@ -52,7 +52,7 @@ abstract class TestCase extends Orchestra
         $app['config']->set('cache.default', 'array');
         $app['config']->set('flink.api_host', self::URL);
         $app['config']->set('flink.tenant_id', self::TENANT);
-        $app['config']->set('flink.prefill.journeys', [self::JOURNEY]);
+        $app['config']->set('flink.journey_id', [self::JOURNEY]);
         $app['config']->set('flink.results.audience', self::RP);
     }
 

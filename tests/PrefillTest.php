@@ -84,27 +84,41 @@ it('refuses a results assertion handed in as a prefill', function (): void {
 })->throws(InvalidAssertion::class, 'Not a flow-prefill+jwt');
 
 it('verifies a JWT from any configured journey', function (): void {
-    config(['flink.prefill.journeys' => [TestCase::JOURNEY, 'WAE67ZF4XNAT']]);
+    config(['flink.journey_id' => [TestCase::JOURNEY, 'WAE67ZF4XNAT']]);
 
     expect(Flink::prefill($this->jwt(['journey' => 'WAE67ZF4XNAT']), TestCase::REF)->journey)->toBe('WAE67ZF4XNAT')
         ->and(fn () => Flink::prefill($this->jwt(['journey' => 'OTHERJOURNEY']), TestCase::REF))->toThrow(InvalidAssertion::class);
 });
 
-it('reads FLINK_JOURNEYS as a comma-separated list', function (): void {
-    config(['flink.prefill.journeys' => ' SCD7DDPK258G, WAE67ZF4XNAT ,']);
+it('reads FLINK_JOURNEY_ID as a comma-separated list', function (): void {
+    config(['flink.journey_id' => ' SCD7DDPK258G, WAE67ZF4XNAT ,']);
 
     expect(Flink::prefill($this->jwt(['journey' => 'WAE67ZF4XNAT']), TestCase::REF)->journey)->toBe('WAE67ZF4XNAT')
         ->and(Flink::prefill($this->jwt([]), TestCase::REF)->journey)->toBe(TestCase::JOURNEY);
 });
 
+// FLNK-1191: FLINK_JOURNEYS (`prefill.journeys`) is the deprecated name, read while FLINK_JOURNEY_ID is unset.
+it('still accepts the journeys of the deprecated FLINK_JOURNEYS while FLINK_JOURNEY_ID is unset', function (): void {
+    config(['flink.journey_id' => null, 'flink.prefill.journeys' => 'SCD7DDPK258G,WAE67ZF4XNAT']);
+
+    expect(Flink::prefill($this->jwt(['journey' => 'WAE67ZF4XNAT']), TestCase::REF)->journey)->toBe('WAE67ZF4XNAT');
+});
+
+it('reads only FLINK_JOURNEY_ID when both are set', function (): void {
+    config(['flink.journey_id' => TestCase::JOURNEY, 'flink.prefill.journeys' => 'WAE67ZF4XNAT']);
+
+    expect(fn () => Flink::prefill($this->jwt(['journey' => 'WAE67ZF4XNAT']), TestCase::REF))->toThrow(InvalidAssertion::class)
+        ->and(Flink::prefill($this->jwt([]), TestCase::REF)->journey)->toBe(TestCase::JOURNEY);
+});
+
 it('requires at least one journey', function (mixed $journeys): void {
-    config(['flink.prefill.journeys' => $journeys]);
+    config(['flink.journey_id' => $journeys]);
 
     Flink::prefill($this->jwt([]), TestCase::REF);
-})->throws(MissingConfiguration::class, 'Set FLINK_JOURNEYS')->with(['unset' => [null], 'empty' => ['']]);
+})->throws(MissingConfiguration::class, 'Set FLINK_JOURNEY_ID')->with(['unset' => [null], 'empty' => ['']]);
 
 it('does not treat missing configuration as a rejected token', function (): void {
-    config(['flink.prefill.journeys' => ' , ']);
+    config(['flink.journey_id' => ' , ']);
 
     expect(fn () => Flink::prefill($this->jwt([]), TestCase::REF))->toThrow(MissingConfiguration::class)
         ->and(new MissingConfiguration('x'))->not->toBeInstanceOf(FlinkException::class);

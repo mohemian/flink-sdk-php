@@ -5,6 +5,7 @@ namespace Mohemian\Flink;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\ServiceProvider;
+use Mohemian\Flink\Assertions\Assertion;
 use Mohemian\Flink\Contracts\KeySet;
 use Mohemian\Flink\Exceptions\MissingConfiguration;
 use Mohemian\Flink\Results\ResultClient;
@@ -83,7 +84,7 @@ final class FlinkServiceProvider extends ServiceProvider
                 AboutCommand::add('FLINK', fn (): array => [
                     'API host' => rescue(fn (): string => $this->apiHost((array) config('flink')), '<fg=yellow;options=bold>INVALID</>', false),
                     'Tenant' => config('flink.tenant_id') ?: '<fg=yellow;options=bold>NOT SET</>',
-                    'Journeys' => (string) (is_array($journeys = config('flink.prefill.journeys')) ? implode(',', $journeys) : $journeys),
+                    'Journeys' => implode(',', Assertion::acceptedJourneys(config())),
                     'Events' => config('flink.events') ? 'ENABLED' : 'OFF',
                 ]);
             }

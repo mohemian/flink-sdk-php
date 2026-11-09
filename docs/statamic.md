@@ -29,7 +29,7 @@ composer require mohemian/flink-sdk-php
 
 ```dotenv
 FLINK_TENANT_ID=1ed9dfea-…
-FLINK_JOURNEYS=SCD7DDPK258G
+FLINK_JOURNEY_ID=SCD7DDPK258G
 # Only if the form page is not on APP_URL's origin:
 # FLINK_AUDIENCE=https://www.example.at
 ```
@@ -125,7 +125,7 @@ below then treats the submission as not prefilled.
   const form = document.querySelector('form');
   const button = document.getElementById('flink-prefill');
   const { open, isAvailable } = Flink.createFlink({
-    journey: 'SCD7DDPK258G', // one of FLINK_JOURNEYS
+    journey: 'SCD7DDPK258G', // one of FLINK_JOURNEY_ID
     reference: '{{ flink:reference }}',
     onResult: async ({ data, prefillJwt }) => {
       const verified = await fetch('/flink/prefill', {
@@ -264,7 +264,7 @@ The logged reason says which check failed. The usual causes:
 | ------------------------------------------------ | ------------------------------------------------------------------------------ |
 | `Claim aud does not match`                       | `APP_URL`'s origin is not the page's: set `FLINK_AUDIENCE`                     |
 | `Claim reference does not match`                 | The page is statically cached, or the session cookie did not reach the route   |
-| `Claim journey does not match`                   | The page's journey is not in `FLINK_JOURNEYS`                                  |
+| `Claim journey does not match`                   | The page's journey is not in `FLINK_JOURNEY_ID`                                  |
 | `Claim tenant_id does not match`                 | `FLINK_TENANT_ID` is another tenant's                                          |
 | `The assertion is not yet valid`                 | This server's clock is more than 5 seconds behind FLINK's: sync it (NTP)        |
 | `No FLINK reference in this session…`            | The session expired, or the page was rendered without `{{ flink:reference }}`   |

@@ -66,7 +66,7 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
                 return $audience ?: $app->make(ResultClient::class)->audience();
             },
             // `aud` is the bare client id and names no journey: a result is bound to its journey here.
-            'journeys' => fn (): array => self::list($config->get('flink.prefill.journeys')) ?: throw MissingConfiguration::for('FLINK_JOURNEYS'),
+            'journeys' => fn (): array => self::acceptedJourneys($config) ?: throw MissingConfiguration::for('FLINK_JOURNEY_ID'),
             // The session the caller fetched the result for, when it names one.
             'session' => fn (): ?string => null,
         ];

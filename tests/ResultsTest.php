@@ -54,11 +54,18 @@ it('accepts a result only for the session the caller asked for, when it names on
         ->toThrow(InvalidAssertion::class, 'Claim sessionId does not match');
 });
 
+it('binds a result to the journeys of the deprecated FLINK_JOURNEYS while FLINK_JOURNEY_ID is unset', function (): void {
+    config(['flink.journey_id' => null, 'flink.prefill.journeys' => TestCase::JOURNEY]);
+
+    expect(Flink::verify($this->resultsJwt(), ResultsAssertion::class)->sessionId)->toBe(TestCase::SESSION)
+        ->and(fn () => Flink::verify($this->resultsJwt(['journeyId' => 'OTHERJOURNEY']), ResultsAssertion::class))->toThrow(InvalidAssertion::class);
+});
+
 it('requires the journeys a result may come from', function (): void {
-    config(['flink.prefill.journeys' => null]);
+    config(['flink.journey_id' => null]);
 
     Flink::results($this->resultsJwt());
-})->throws(MissingConfiguration::class, 'Set FLINK_JOURNEYS');
+})->throws(MissingConfiguration::class, 'Set FLINK_JOURNEY_ID');
 
 it('says which attribute FLINK derived, and as of which day', function (): void {
     $results = Flink::results($this->resultsJwt(['attributes' => [
@@ -135,7 +142,7 @@ it('refuses a type that is not an assertion', function (): void {
 })->throws(InvalidArgumentException::class);
 
 it('needs no configuration for an expectation the caller supplies', function (): void {
-    config(['flink.results.audience' => null, 'flink.prefill.journeys' => null]);
+    config(['flink.results.audience' => null, 'flink.journey_id' => null]);
 
     expect(Flink::verify($this->resultsJwt(), ResultsAssertion::class, ['aud' => TestCase::RP, 'journeys' => [TestCase::JOURNEY]]))->toBeInstanceOf(ResultsAssertion::class)
         ->and(Flink::verify($this->jwt([]), PrefillAssertion::class, ['journeys' => [TestCase::JOURNEY], 'reference' => TestCase::REF]))->toBeInstanceOf(PrefillAssertion::class);
