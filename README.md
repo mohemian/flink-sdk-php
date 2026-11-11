@@ -307,7 +307,7 @@ from the direct start:
   it, so a forwarded link or a link preview cannot use it. It stays openable for 15 minutes (`expiresAt`).
 - The journey runs as it does from a journey link, so `journey_needs_interaction` and
   `eid_entry_not_redirect` never apply. The person must finish, and your backend redeem the return, within
-  `hostedDeadlineAt` (with `returnsWithCode`, from `Flink::fetchSession()`): 8 hours after the start, or
+  `hostedDeadlineAt` (with `returnsWithCode`, from `Flink::fetchSession()`): at most 8 hours after the start,
   earlier when FLINK's idle-session cutoff is shorter.
 - When the person finishes, they come back to your return link with a `flink_return_code`; confirm it with
   `completeReturn()` and fetch the result as above. A person who abandons a hosted session does not come
@@ -358,7 +358,8 @@ and the eID as optional, so the person can choose on FLINK's screens (see "Let t
 FLINK's screens"), `Flink::completeReturn()` takes a `null` code (a direct start that did not complete
 returns the person with none), and `Flink::fetchSession()` reports `returnsWithCode` and
 `hostedDeadlineAt`. The same tag also ships FLNK-1279: `Flink::startSession()` takes `clientReferenceId`, and
-`ResultsAssertion` reads it back (see "Send a person straight to their eID"). Positional calls with a country and an eID work as before. A hosted start needs
+`ResultsAssertion` reads it back (see "Send a person straight to their eID"). Positional calls with a
+country and an eID work as before. A hosted start needs
 flink-services with hosted starts turned on; until then FLINK refuses it with `hosted_mode_unavailable`.
 
 ## Upgrading from 0.4 to 1.0

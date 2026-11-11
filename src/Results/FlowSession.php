@@ -29,8 +29,10 @@ final readonly class FlowSession
          * which can also return with no code.
          */
         public bool $returnsWithCode = false,
-        /** With `returnsWithCode`: when the journey must be completed and its return redeemed by: 8 hours after the start, or earlier
-         * when FLINK's idle cutoff is shorter. */
+        /**
+         * With `returnsWithCode`: when the journey must be completed and its return redeemed by: at most 8 hours
+         * after the start, earlier when FLINK's idle cutoff is shorter.
+         */
         public ?CarbonImmutable $hostedDeadlineAt = null,
     ) {}
 

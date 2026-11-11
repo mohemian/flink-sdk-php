@@ -104,9 +104,9 @@ final readonly class Flink
      *
      * `$eidEntry` without `$country` throws `InvalidArgumentException`. A hosted link opens once and
      * lands on a page that opens nothing until the person's browser continues from it. The journey
-     * must then finish, and its return be redeemed, by the session's `hostedDeadlineAt`: 8 hours
-     * after the start, or the earlier moment FLINK ends an idle session (see `fetchSession()`), while
-     * `expiresAt` is only the last moment the link can be opened. A person who abandons a hosted
+     * must then finish, and its return be redeemed, by the session's `hostedDeadlineAt`
+     * (see `fetchSession()`): at most 8 hours after the start, earlier when FLINK's idle cutoff is
+     * shorter. `expiresAt` is only the last moment the link can be opened. A person who abandons a hosted
      * session does not come back: your backend sees it `started`, then `link_expired` at the deadline.
      *
      * FLINK sends the person to the journey's return link, with a `flink_return_code` query parameter
