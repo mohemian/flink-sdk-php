@@ -311,7 +311,8 @@ from the direct start:
   earlier when FLINK's idle-session cutoff is shorter.
 - When the person finishes, they come back to your return link with a `flink_return_code`; confirm it with
   `completeReturn()` and fetch the result as above. A person who abandons a hosted session does not come
-  back at all: your backend sees it `started`, then `link_expired` at the deadline. (Only a direct start can
+  back at all: your backend sees it `started`, and after the deadline `fetchResult()` answers
+  `aborted`, reason `link_expired` (`return_expired` if a code was issued and not redeemed). (Only a direct start can
   return with no code: `completeReturn()` then answers `false` without asking FLINK, and `fetchResult()`
   says why. Show your own "not verified" page unless the session is `completed`.)
 - `$notice` is ignored (FLINK shows its own notice). A person who finishes on another device after a hand-off

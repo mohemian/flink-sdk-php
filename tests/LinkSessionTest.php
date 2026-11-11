@@ -245,8 +245,9 @@ it('confirms nothing, and asks FLINK nothing, for a return that came without a c
     Http::assertNotSent(fn (Request $request): bool => $request->url() === LINK_RETURN_URL);
 });
 
-// An abandoned hosted session reads started, then link_expired at its deadline; services never says aborted.
-it('says a hosted session has no result, started before its deadline and link_expired at it', function (string $status, ?string $reason): void {
+// An abandoned hosted session has no result: `started` before its deadline, then `aborted` with reason
+// `link_expired` (`return_expired` if a code was issued and not redeemed).
+it('says a hosted session has no result, started before its deadline, aborted with link_expired or return_expired after it', function (string $status, ?string $reason): void {
     $this->resultsAnswer = fn (): mixed => Http::response(array_filter(['statusCode' => 409, 'status' => $status, 'reason' => $reason]), 409);
 
     try {

@@ -22,7 +22,8 @@ final class ResultUnavailable extends \RuntimeException
          * `awaiting_return` (call `completeReturn()` first), `eid_failed`, `sanctions_unavailable`,
          * `return_expired`, `link_expired`. Decide from `sessionStatus` alone whether to ask again:
          * `aborted` is final, and a hosted session (FLNK-1272) that was abandoned reads `started`
-         * until its deadline, then `link_expired`. Ignore a reason you do not know.
+         * until its deadline, then `aborted` with reason `link_expired` (`return_expired` if a code was
+         * issued and not redeemed). Ignore a reason you do not know.
          */
         public readonly ?string $reason = null,
         /** With `reason` `eid_failed`: FLINK's code for the failed login, e.g. `country_mismatch`. */

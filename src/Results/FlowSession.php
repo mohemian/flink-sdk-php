@@ -25,7 +25,8 @@ final readonly class FlowSession
         /**
          * True for a session started without an eID (hosted, FLNK-1272): the person comes back to your
          * return link with a `flink_return_code` when it completed. An abandoned one never comes back:
-         * it stays `started` until the deadline, then reads `link_expired`. False for a direct start,
+         * it stays `started` until the deadline, then `fetchResult()` answers `aborted`,
+         * reason `link_expired` (`return_expired` if a code was issued and not redeemed). False for a direct start,
          * which can also return with no code.
          */
         public bool $returnsWithCode = false,

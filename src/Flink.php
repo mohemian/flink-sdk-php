@@ -107,7 +107,8 @@ final readonly class Flink
      * must then finish, and its return be redeemed, by the session's `hostedDeadlineAt`
      * (see `fetchSession()`): at most 8 hours after the start, earlier when FLINK's idle cutoff is
      * shorter. `expiresAt` is only the last moment the link can be opened. A person who abandons a hosted
-     * session does not come back: your backend sees it `started`, then `link_expired` at the deadline.
+     * session does not come back: your backend sees it `started`, and after the deadline `fetchResult()` answers
+     * `aborted`, reason `link_expired`.
      *
      * FLINK sends the person to the journey's return link, with a `flink_return_code` query parameter
      * when it completed: pass that to `completeReturn()`. A direct start (`$country` and `$eidEntry`)
