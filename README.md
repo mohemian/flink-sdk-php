@@ -310,12 +310,10 @@ from the direct start:
   `hostedDeadlineAt` (with `returnsWithCode`, from `Flink::fetchSession()`): 8 hours after the start, or
   earlier when FLINK's idle-session cutoff is shorter.
 - When the person finishes, they come back to your return link with a `flink_return_code`; confirm it with
-  `completeReturn()` and fetch the result as above. If the session did not complete, they come back **with
-  no code**, on a direct start as well: `completeReturn()` then answers `false` without asking FLINK. Ask
-  `fetchResult()` what happened: it throws `ResultUnavailable` with the `sessionStatus` (`aborted` is
-  final). Show your own "not verified" page unless the session is `completed`. A person who abandons a
-  hosted session does not come back at all: your backend sees it `started`, then `link_expired` at the
-  deadline.
+  `completeReturn()` and fetch the result as above. A person who abandons a hosted session does not come
+  back at all: your backend sees it `started`, then `link_expired` at the deadline. (Only a direct start can
+  return with no code: `completeReturn()` then answers `false` without asking FLINK, and `fetchResult()`
+  says why. Show your own "not verified" page unless the session is `completed`.)
 - `$notice` is ignored (FLINK shows its own notice). A person who finishes on another device after a hand-off
   gets no return: your backend sees `awaiting_return`, then `link_expired` at the deadline.
 - New `SessionRefused` reasons: `hosted_mode_unavailable`, `country_required` (an eID without a country),
@@ -330,7 +328,7 @@ $code = $request->query('flink_return_code');
 if (is_string($code) && Flink::completeReturn($sessionId, $code)) {
     $results = Flink::fetchResult($sessionId);
 } else {
-    // No code: the session did not complete, see fetchResult()'s sessionStatus;
+    // No code (a direct start that did not complete): see fetchResult()'s sessionStatus;
     // a wrong or expired code: start a new session.
 }
 ```
@@ -357,7 +355,7 @@ Flink::fetchResult($sessionId);                               // answered withou
 
 1.1 (FLNK-1272) is backwards compatible; nothing to change. `Flink::startSession()` now takes the country
 and the eID as optional, so the person can choose on FLINK's screens (see "Let the person choose on
-FLINK's screens"), `Flink::completeReturn()` takes a `null` code (a session that did not complete
+FLINK's screens"), `Flink::completeReturn()` takes a `null` code (a direct start that did not complete
 returns the person with none), and `Flink::fetchSession()` reports `returnsWithCode` and
 `hostedDeadlineAt`. The same tag also ships FLNK-1279: `Flink::startSession()` takes `clientReferenceId`, and
 `ResultsAssertion` reads it back (see "Send a person straight to their eID"). Positional calls with a country and an eID work as before. A hosted start needs

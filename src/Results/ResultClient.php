@@ -187,7 +187,8 @@ final readonly class ResultClient
     /**
      * Confirm the person came back with the session's return code (FLNK-1182): true when FLINK
      * released the result (again on a repeat), false for a wrong, expired or foreign code, or none:
-     * a session that did not complete returns the person with no code.
+     * a direct start whose session did not complete, or whose code FLINK could not issue, returns the
+     * person with no code. A hosted session never returns without one.
      *
      * @throws ResultUnavailable
      * @throws MissingConfiguration

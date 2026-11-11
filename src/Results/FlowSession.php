@@ -24,8 +24,9 @@ final readonly class FlowSession
         public ?CarbonImmutable $completedAt,
         /**
          * True for a session started without an eID (hosted, FLNK-1272): the person comes back to your
-         * return link with a `flink_return_code` when it completed. An abandoned one stays `started` until the
-         * deadline, then reads `link_expired`.
+         * return link with a `flink_return_code` when it completed. An abandoned one never comes back:
+         * it stays `started` until the deadline, then reads `link_expired`. False for a direct start,
+         * which can also return with no code.
          */
         public bool $returnsWithCode = false,
         /** With `returnsWithCode`: when the journey must be completed and its return redeemed by: 8 hours after the start, or earlier
