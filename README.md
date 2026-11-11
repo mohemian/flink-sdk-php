@@ -267,9 +267,11 @@ result to your record on it only when the source is `api`, which FLINK says only
 started the session. It is `null` for a session started without one, and FLINK does not check that it is unique.
 It is up to 128 characters from `A-Z a-z 0-9 . _ : -` (anything else throws
 `InvalidArgumentException` before FLINK is called), and holds no personal data. A flow link takes
-the same value as its `client_reference_id` query parameter, but a value in a link is not
-authenticated: whoever holds the link can change it, so use it to find your record, never as proof
-of who started the session.
+the same value as its `client_reference_id` query parameter. This needs flink-services #1541, and
+links carry the reference only once flink-web #463 is merged. A value in a link is not
+authenticated: whoever holds the link can change it, so treat it as an unverified hint, never as
+proof of who started the session. Bind your record to the session on `sessionId`, not on the
+reference or the link value.
 
 Once your start page shows the journey's applicant notice, attest it on the start with
 `notice: ['revision' => …, 'locale' => …]`: the `revision` FLINK served and the BCP 47 locale you
