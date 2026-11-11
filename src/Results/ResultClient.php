@@ -143,7 +143,8 @@ final readonly class ResultClient
     }
 
     /**
-     * Start a session at one of the journey's countries and eIDs behind a FLINK link (FLNK-1182).
+     * Start a session behind a FLINK link (FLNK-1182): at one eID of one country, or hosted
+     * (FLNK-1272), with the person choosing on FLINK's screens, when `$eidEntry` is null.
      *
      * @param  array{revision?: string, locale?: string}|null  $notice
      *
@@ -152,7 +153,7 @@ final readonly class ResultClient
      * @throws ResultUnavailable 403 a client without `flow-session:write` or not a relying party's backend, 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
      * @throws MissingConfiguration
      */
-    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp, ?string $userAgent, ?array $notice = null, ?string $clientReferenceId = null): LinkSession
+    public function startSession(string $journey, ?string $country, ?int $eidEntry, ?string $clientIp, ?string $userAgent, ?array $notice = null, ?string $clientReferenceId = null): LinkSession
     {
         // The shape FLINK accepts (FLNK-1279): a mistake in the caller's code, so refused before any call.
         if ($clientReferenceId !== null && preg_match('/^[A-Za-z0-9._:-]{1,128}$/D', $clientReferenceId) !== 1) {
@@ -181,15 +182,16 @@ final readonly class ResultClient
 
     /**
      * Confirm the person came back with the session's return code (FLNK-1182): true when FLINK
-     * released the result (again on a repeat), false for a wrong, expired or foreign code.
+     * released the result (again on a repeat), false for a wrong, expired or foreign code, or none:
+     * a hosted session that ended aborted returns the person with no code (FLNK-1272).
      *
      * @throws ResultUnavailable
      * @throws MissingConfiguration
      */
-    public function completeReturn(string $sessionId, string $code): bool
+    public function completeReturn(string $sessionId, ?string $code): bool
     {
         // FLINK's codes are short; one it could not have issued is false without asking.
-        if ($code === '' || strlen($code) > 128) {
+        if ($code === null || $code === '' || strlen($code) > 128) {
             return false;
         }
         $response = $this->post('return', $this->sessionPath($sessionId).'/return', ['code' => $code]);

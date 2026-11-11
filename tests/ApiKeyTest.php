@@ -203,6 +203,22 @@ it('leaves completedAt empty while the session runs', function (): void {
     expect($session->status)->toBe('started')->and($session->completedAt)->toBeNull()->and($session->steps)->toBe([]);
 });
 
+it("reads a hosted session's return mode and deadline (FLNK-1272)", function (): void {
+    $this->sessionBody['returns_with_code'] = true;
+    $this->sessionBody['hosted_deadline_at'] = '2026-10-29T18:22:45.897Z';
+
+    $session = Flink::fetchSession(TestCase::SESSION);
+
+    expect($session->returnsWithCode)->toBeTrue()
+        ->and($session->hostedDeadlineAt?->toIso8601ZuluString('millisecond'))->toBe('2026-10-29T18:22:45.897Z');
+});
+
+it('has no hosted return mode or deadline on a session that is not hosted', function (): void {
+    $session = Flink::fetchSession(TestCase::SESSION);
+
+    expect($session->returnsWithCode)->toBeFalse()->and($session->hostedDeadlineAt)->toBeNull();
+});
+
 it('says a session of another journey, or none, is one this key may not read', function (): void {
     $this->sessionAnswer = fn (): mixed => Http::response(['message' => 'not found'], 404);
 

@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Mohemian\Flink\Results;
 
 /**
- * A session started at a chosen country and eID (`Flink::startSession()`, FLNK-1182), and the FLINK
- * link that takes the person straight to that eID's login. Keep `sessionId` with your logged-in user:
- * `completeReturn()` must only ever confirm their own session.
+ * A session started behind a FLINK link (`Flink::startSession()`, FLNK-1182): at a chosen country and
+ * eID, the link takes the person straight to that eID's login; without them (hosted, FLNK-1272) it opens
+ * FLINK's own web flow, once. Keep `sessionId` with your logged-in user: `completeReturn()` must only
+ * ever confirm their own session.
  */
 final readonly class LinkSession
 {
@@ -16,7 +17,7 @@ final readonly class LinkSession
         public string $tenantId,
         /** The FLINK link to send the person to; never the provider's own address. */
         public string $url,
-        /** ISO 8601: until when the link can start a login. */
+        /** ISO 8601: until when the link can start a login, or for a hosted link, be opened. */
         public string $expiresAt,
     ) {}
 

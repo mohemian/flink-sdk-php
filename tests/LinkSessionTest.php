@@ -200,3 +200,60 @@ it("reads a confirmed link session's identity through fetchResult", function ():
     expect($result->attributes['givenName']['value'])->toBe('Jane')
         ->and($result->sources)->toHaveKey(TestCase::EID);
 });
+
+// Hosted mode (FLNK-1272): without an eID entry the person chooses on FLINK's screens.
+it('starts a hosted session without a country or an eID, and hands back the FLINK link', function (): void {
+    $this->startAnswer = fn (): mixed => Http::response([
+        'session_id' => TestCase::SESSION,
+        'tenant_id' => TestCase::TENANT,
+        'link' => ['url' => 'https://web.test/h/handle-1', 'expires_at' => '2026-11-04T12:15:00.000Z'],
+    ], 201);
+
+    $session = Flink::startSession(TestCase::JOURNEY, clientIp: '203.0.113.7', userAgent: 'Browser/1');
+
+    expect($session->sessionId)->toBe(TestCase::SESSION)
+        ->and($session->url)->toBe('https://web.test/h/handle-1');
+    Http::assertSent(fn (Request $request): bool => $request->url() === LINK_START_URL
+        && $request->data() === ['client_ip' => '203.0.113.7', 'user_agent' => 'Browser/1']);
+});
+
+it('starts a hosted session at the method choice of one country', function (): void {
+    Flink::startSession(TestCase::JOURNEY, 'at');
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === LINK_START_URL && $request->data() === ['country' => 'at']);
+});
+
+it("passes FLINK's hosted-mode refusals on", function (string $code): void {
+    $this->startAnswer = fn (): mixed => Http::response(['statusCode' => 400, 'code' => $code], 400);
+
+    try {
+        Flink::startSession(TestCase::JOURNEY);
+        $this->fail('no exception');
+    } catch (SessionRefused $e) {
+        expect($e->reason)->toBe($code)->and($e->step)->toBeNull();
+    }
+})->with(['hosted_mode_unavailable', 'country_required', 'consent_needs_eid_entry', 'notice_required', 'consent_required']);
+
+it('lets the eID go without a country to FLINK, which refuses it', function (): void {
+    $this->startAnswer = fn (): mixed => Http::response(['statusCode' => 400, 'code' => 'country_required'], 400);
+
+    expect(fn () => Flink::startSession(TestCase::JOURNEY, eidEntry: 2))->toThrow(SessionRefused::class);
+    Http::assertSent(fn (Request $request): bool => $request->url() === LINK_START_URL && $request->data() === ['eid_entry' => 2]);
+});
+
+// A hosted session that ends aborted returns the person with no code: there is nothing to confirm.
+it('confirms nothing, and asks FLINK nothing, for a return that came without a code', function (): void {
+    expect(Flink::completeReturn(TestCase::SESSION, null))->toBeFalse();
+    Http::assertNotSent(fn (Request $request): bool => $request->url() === LINK_RETURN_URL);
+});
+
+it('says an aborted hosted session has no result, with no reason before its deadline', function (?string $reason): void {
+    $this->resultsAnswer = fn (): mixed => Http::response(array_filter(['statusCode' => 409, 'status' => 'aborted', 'reason' => $reason]), 409);
+
+    try {
+        Flink::fetchResult(TestCase::SESSION);
+        $this->fail('no exception');
+    } catch (ResultUnavailable $e) {
+        expect($e->status)->toBe(409)->and($e->sessionStatus)->toBe('aborted')->and($e->reason)->toBe($reason);
+    }
+})->with([null, 'link_expired', 'return_expired']);

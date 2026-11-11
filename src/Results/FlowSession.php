@@ -22,6 +22,14 @@ final readonly class FlowSession
         public CarbonImmutable $createdAt,
         public CarbonImmutable $updatedAt,
         public ?CarbonImmutable $completedAt,
+        /**
+         * True for a session started without an eID (hosted, FLNK-1272): the person comes back to your
+         * return link with a `flink_return_code` when it completed, and with none when it ended
+         * `aborted`.
+         */
+        public bool $returnsWithCode = false,
+        /** With `returnsWithCode`: when the journey must be completed and its return redeemed by. */
+        public ?CarbonImmutable $hostedDeadlineAt = null,
     ) {}
 
     /** FLINK's session answer, or null when it is not one for `$sessionId`. */
@@ -54,6 +62,8 @@ final readonly class FlowSession
                 CarbonImmutable::parse($body['created_at']),
                 CarbonImmutable::parse($body['updated_at']),
                 self::time($body['completed_at'] ?? null),
+                ($body['returns_with_code'] ?? false) === true,
+                self::time($body['hosted_deadline_at'] ?? null),
             );
         } catch (InvalidFormatException) {
             // A timestamp FLINK would not send: not a session answer, never a guessed value.
