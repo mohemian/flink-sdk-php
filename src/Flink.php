@@ -101,16 +101,20 @@ final readonly class Flink
      * the person's, as your server sees them. `$notice` attests that your page showed the person the
      * journey's applicant notice: `revision` as FLINK served it and the BCP 47 `locale` you showed it
      * in. FLINK does not require it yet (FLNK-1184); send it once your start page shows the notice.
+     * `$clientReferenceId` is your own reference for the session, such as an order or case id
+     * (FLNK-1279): FLINK signs it into the result, read back as `ResultsAssertion::$clientReferenceId`.
+     * Up to 128 characters from `A-Z a-z 0-9 . _ : -`, and no personal data.
      *
      * @param  array{revision?: string, locale?: string}|null  $notice
      *
+     * @throws \InvalidArgumentException a `$clientReferenceId` FLINK would refuse
      * @throws SessionRefused FLINK will not start it, and says why
      * @throws ResultUnavailable 403 a client without `flow-session:write`, 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
      * @throws MissingConfiguration
      */
-    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp = null, ?string $userAgent = null, ?array $notice = null): LinkSession
+    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp = null, ?string $userAgent = null, ?array $notice = null, ?string $clientReferenceId = null): LinkSession
     {
-        return $this->app->make(ResultClient::class)->startSession($journey, $country, $eidEntry, $clientIp, $userAgent, $notice);
+        return $this->app->make(ResultClient::class)->startSession($journey, $country, $eidEntry, $clientIp, $userAgent, $notice, $clientReferenceId);
     }
 
     /**

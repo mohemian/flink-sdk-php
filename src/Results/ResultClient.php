@@ -147,18 +147,24 @@ final readonly class ResultClient
      *
      * @param  array{revision?: string, locale?: string}|null  $notice
      *
+     * @throws \InvalidArgumentException a `$clientReferenceId` FLINK would refuse
      * @throws SessionRefused FLINK will not start it, and says why
      * @throws ResultUnavailable 403 a client without `flow-session:write` or not a relying party's backend, 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
      * @throws MissingConfiguration
      */
-    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp, ?string $userAgent, ?array $notice = null): LinkSession
+    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp, ?string $userAgent, ?array $notice = null, ?string $clientReferenceId = null): LinkSession
     {
+        // The shape FLINK accepts (FLNK-1279): a mistake in the caller's code, so refused before any call.
+        if ($clientReferenceId !== null && preg_match('/^[A-Za-z0-9._:-]{1,128}$/D', $clientReferenceId) !== 1) {
+            throw new \InvalidArgumentException('clientReferenceId must be 1 to 128 characters from A-Z a-z 0-9 . _ : -');
+        }
         $response = $this->post('link', '/journeys/'.rawurlencode($journey).'/sessions', array_filter([
             'country' => $country,
             'eid_entry' => $eidEntry,
             'client_ip' => $clientIp,
             'user_agent' => $userAgent,
             'notice' => $notice,
+            'client_reference_id' => $clientReferenceId,
         ], fn (mixed $value): bool => ! in_array($value, [null, '', []], true)));
         $code = $response->json('code');
         if ($response->status() === 400 && is_string($code)) {

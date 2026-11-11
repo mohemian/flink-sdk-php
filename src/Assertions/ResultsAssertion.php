@@ -30,6 +30,8 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
         public readonly string $journeyId,
         public readonly string $id,
         public readonly CarbonImmutable $issuedAt,
+        /** Your own reference for the session, as you passed it at its start (FLNK-1279); null when none. */
+        public readonly ?string $clientReferenceId = null,
     ) {}
 
     public static function type(): string
@@ -102,6 +104,7 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
             self::stringClaim($claims, 'journeyId'),
             self::stringClaim($claims, 'jti'),
             CarbonImmutable::createFromTimestamp(self::intClaim($claims, 'iat')),
+            is_string($claims['clientReferenceId'] ?? null) ? $claims['clientReferenceId'] : null,
         );
     }
 

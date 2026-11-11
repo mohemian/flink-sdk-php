@@ -29,6 +29,11 @@ it('verifies a results assertion, which carries no exp', function (): void {
         ->and($results->issuedAt)->toEqual(CarbonImmutable::createFromTimestamp($iat));
 });
 
+it('reads the client reference the session was started with, and null without one (FLNK-1279)', function (): void {
+    expect(Flink::results($this->resultsJwt(['clientReferenceId' => 'order-4711']))->clientReferenceId)->toBe('order-4711')
+        ->and(Flink::results($this->resultsJwt())->clientReferenceId)->toBeNull();
+});
+
 it('rejects a results claim', function (array $claims, string $message): void {
     expect(fn () => Flink::results($this->resultsJwt($claims)))->toThrow(InvalidAssertion::class, $message);
 })->with([
