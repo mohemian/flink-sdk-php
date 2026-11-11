@@ -93,26 +93,44 @@ final readonly class Flink
     }
 
     /**
-     * Start a session at one of the journey's countries and eIDs, as `fetchCountries()` lists them,
-     * and get the FLINK link that takes the person straight to that eID's login, with no FLINK screen
-     * (FLNK-1182). Keep `sessionId` with your logged-in user. FLINK runs the journey's remaining steps
-     * itself and sends the person to the journey's return link, with a `flink_return_code` query
-     * parameter when it completed: pass that to `completeReturn()`. `$clientIp` and `$userAgent` are
-     * the person's, as your server sees them. `$notice` attests that your page showed the person the
-     * journey's applicant notice: `revision` as FLINK served it and the BCP 47 `locale` you showed it
-     * in. FLINK does not require it yet (FLNK-1184); send it once your start page shows the notice.
+     * Start a session and get the FLINK link to send the person to (FLNK-1182, FLNK-1272). Keep
+     * `sessionId` with your logged-in user.
+     *
+     * - `$country` and `$eidEntry` (one of the journey's countries and eIDs, as `fetchCountries()`
+     *   lists them): the link takes the person straight to that eID's login, with no FLINK screen.
+     * - `$country` only: FLINK's own web flow opens at the choice of method for that country (hosted).
+     * - neither: it opens at the choice of country (hosted). The person chooses on FLINK's screens
+     *   and you still get the session id, so a webhook or a return connects to your user.
+     *
+     * `$eidEntry` without `$country` throws `InvalidArgumentException`. A hosted link opens once and
+     * lands on a page that opens nothing until the person's browser continues from it. The journey
+     * must then finish, and its return be redeemed, by the session's `hostedDeadlineAt`
+     * (see `fetchSession()`): at most 8 hours after the start, earlier when FLINK's idle cutoff is
+     * shorter. `expiresAt` is only the last moment the link can be opened. A person who abandons a hosted
+     * session does not come back: your backend sees it `started`, and after the deadline `fetchResult()` answers
+     * `aborted`, reason `link_expired`.
+     *
+     * FLINK sends the person to the journey's return link, with a `flink_return_code` query parameter
+     * when it completed: pass that to `completeReturn()`. A direct start (`$country` and `$eidEntry`)
+     * can also return with no code, when the session did not complete or FLINK could not issue the
+     * code: there is nothing to confirm, and `fetchResult()` says why there is no result.
+     *
+     * `$clientIp` and `$userAgent` are the person's, as your server sees them. `$notice` attests that
+     * your page showed the person the journey's applicant notice: `revision` as FLINK served it and
+     * the BCP 47 `locale` you showed it in. FLINK does not require it yet (FLNK-1184); send it once
+     * your start page shows the notice. A hosted start ignores it: FLINK shows its own.
      * `$clientReferenceId` is your own reference for the session, such as an order or case id
      * (FLNK-1279): FLINK signs it into the result, read back as `ResultsAssertion::$clientReferenceId`.
      * Up to 128 characters from `A-Z a-z 0-9 . _ : -`, and no personal data.
      *
      * @param  array{revision?: string, locale?: string}|null  $notice
      *
-     * @throws \InvalidArgumentException a `$clientReferenceId` FLINK would refuse
+     * @throws \InvalidArgumentException an `$eidEntry` without a `$country`, or a `$clientReferenceId` FLINK would refuse
      * @throws SessionRefused FLINK will not start it, and says why
      * @throws ResultUnavailable 403 a client without `flow-session:write`, 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
      * @throws MissingConfiguration
      */
-    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp = null, ?string $userAgent = null, ?array $notice = null, ?string $clientReferenceId = null): LinkSession
+    public function startSession(string $journey, ?string $country = null, ?int $eidEntry = null, ?string $clientIp = null, ?string $userAgent = null, ?array $notice = null, ?string $clientReferenceId = null): LinkSession
     {
         return $this->app->make(ResultClient::class)->startSession($journey, $country, $eidEntry, $clientIp, $userAgent, $notice, $clientReferenceId);
     }
@@ -122,12 +140,15 @@ final readonly class Flink
      * releases the session's result for `fetchResult()`. **Only for the session id you stored for the
      * user logged in on this request, never one taken from the URL**: that check is what stops someone
      * forwarding their own link to another person from receiving that person's identity. True when
-     * confirmed (again on a reload), false for a wrong, expired or foreign code.
+     * confirmed (again on a reload), false for a wrong, expired or foreign code, and false, without
+     * asking FLINK, for a return that came with no code (null or empty): a direct start whose session did not
+     * complete, or whose code FLINK could not issue, returns the person that way, so check `fetchResult()`
+     * or `fetchSession()` for its status instead.
      *
      * @throws ResultUnavailable FLINK refused the client, or was unreachable
      * @throws MissingConfiguration
      */
-    public function completeReturn(string $sessionId, string $code): bool
+    public function completeReturn(string $sessionId, ?string $code): bool
     {
         return $this->app->make(ResultClient::class)->completeReturn($sessionId, $code);
     }

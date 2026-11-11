@@ -143,17 +143,22 @@ final readonly class ResultClient
     }
 
     /**
-     * Start a session at one of the journey's countries and eIDs behind a FLINK link (FLNK-1182).
+     * Start a session behind a FLINK link (FLNK-1182): at one eID of one country, or hosted
+     * (FLNK-1272), with the person choosing on FLINK's screens, when `$eidEntry` is null.
      *
      * @param  array{revision?: string, locale?: string}|null  $notice
      *
-     * @throws \InvalidArgumentException a `$clientReferenceId` FLINK would refuse
+     * @throws \InvalidArgumentException an `$eidEntry` without a `$country`, or a `$clientReferenceId` FLINK would refuse
      * @throws SessionRefused FLINK will not start it, and says why
      * @throws ResultUnavailable 403 a client without `flow-session:write` or not a relying party's backend, 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
      * @throws MissingConfiguration
      */
-    public function startSession(string $journey, string $country, int $eidEntry, ?string $clientIp, ?string $userAgent, ?array $notice = null, ?string $clientReferenceId = null): LinkSession
+    public function startSession(string $journey, ?string $country, ?int $eidEntry, ?string $clientIp, ?string $userAgent, ?array $notice = null, ?string $clientReferenceId = null): LinkSession
     {
+        // A mistake in the caller's code, so refused before a rate-limited start is spent on it.
+        if ($eidEntry !== null && $country === null) {
+            throw new \InvalidArgumentException('an eID entry needs its country');
+        }
         // The shape FLINK accepts (FLNK-1279): a mistake in the caller's code, so refused before any call.
         if ($clientReferenceId !== null && preg_match('/^[A-Za-z0-9._:-]{1,128}$/D', $clientReferenceId) !== 1) {
             throw new \InvalidArgumentException('clientReferenceId must be 1 to 128 characters from A-Z a-z 0-9 . _ : -');
@@ -181,15 +186,17 @@ final readonly class ResultClient
 
     /**
      * Confirm the person came back with the session's return code (FLNK-1182): true when FLINK
-     * released the result (again on a repeat), false for a wrong, expired or foreign code.
+     * released the result (again on a repeat), false for a wrong, expired or foreign code, or none:
+     * a direct start whose session did not complete, or whose code FLINK could not issue, returns the
+     * person with no code. A hosted session never returns without one.
      *
      * @throws ResultUnavailable
      * @throws MissingConfiguration
      */
-    public function completeReturn(string $sessionId, string $code): bool
+    public function completeReturn(string $sessionId, ?string $code): bool
     {
         // FLINK's codes are short; one it could not have issued is false without asking.
-        if ($code === '' || strlen($code) > 128) {
+        if ($code === null || $code === '' || strlen($code) > 128) {
             return false;
         }
         $response = $this->post('return', $this->sessionPath($sessionId).'/return', ['code' => $code]);
