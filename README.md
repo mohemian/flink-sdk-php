@@ -288,6 +288,49 @@ opening the link again retries), `sanctions_unavailable`, `return_expired` or `l
 from `sessionStatus` alone whether to ask again: `aborted` is final. FLINK deletes the person's data
 from a session whose return was never confirmed.
 
+### Let the person choose on FLINK's screens (hosted start)
+
+Needs flink-services with hosted starts turned on (FLNK-1272, mohemian/flink-services#1535); until then
+FLINK refuses the start with `hosted_mode_unavailable`. Leave out the eID, or the country too, and the
+person chooses on FLINK's own screens, while you still get the session id and a link, so the result
+and any webhook connect to your user:
+
+```php
+$session = Flink::startSession($journey, clientIp: $request->ip(), userAgent: $request->userAgent());  // person picks the country
+$session = Flink::startSession($journey, 'at');                                                        // person picks the eID
+```
+
+Store `$session->sessionId` with your user and send them to `$session->url`, exactly as above. Differences
+from the direct start:
+
+- The link opens **once**, on a landing page that opens nothing until the person's browser continues from
+  it, so a forwarded link or a link preview cannot use it. It stays openable for 15 minutes (`expiresAt`).
+- The journey runs as it does from a journey link, so `journey_needs_interaction` and
+  `eid_entry_not_redirect` never apply. The person must finish, and your backend redeem the return, within
+  8 hours of the start: `Flink::fetchSession()` shows it as `hostedDeadlineAt` (with `returnsWithCode`).
+- When the person finishes, they come back to your return link with a `flink_return_code`; confirm it with
+  `completeReturn()` and fetch the result as above. If the session ended `aborted`, they come back **with no
+  code**: `completeReturn()` then answers `false` without asking FLINK, and `fetchResult()` throws
+  `ResultUnavailable` with `sessionStatus` `aborted`. Nothing is left to confirm; show your own "not
+  verified" page.
+- `$notice` is ignored (FLINK shows its own notice). A person who finishes on another device after a hand-off
+  gets no return: your backend sees `awaiting_return`, then `link_expired` at the deadline.
+- New `SessionRefused` reasons: `hosted_mode_unavailable`, `country_required` (an eID without a country),
+  and `notice_required` or `consent_required` for a journey that requires the person's notice or consent
+  on some route (FLINK cannot collect it when the person picks the route). `consent_needs_eid_entry` is
+  FLINK's refusal of versioned consent capture on a hosted start, which this package does not send.
+
+```php
+// GET /flink-return?flink_return_code=…   (hosted or direct)
+$sessionId = $request->user()->flink_session;                      // never from the URL
+$code = $request->query('flink_return_code');
+if (is_string($code) && Flink::completeReturn($sessionId, $code)) {
+    $results = Flink::fetchResult($sessionId);
+} else {
+    // No code: an aborted hosted session; a wrong or expired code: start a new session.
+}
+```
+
 ## Testing your app
 
 `Flink::fake()` verifies against a key generated for the test, and signs assertions your config
@@ -305,6 +348,15 @@ $fake->results(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:sourc
 $fake->serveResults(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:source:eid:oidc']]);
 Flink::fetchResult($sessionId);                               // answered without FLINK, no key needed
 ```
+
+## Upgrading from 1.0 to 1.1
+
+1.1 (FLNK-1272) is backwards compatible; nothing to change. `Flink::startSession()` now takes the country
+and the eID as optional, so the person can choose on FLINK's screens (see "Let the person choose on
+FLINK's screens"), `Flink::completeReturn()` takes a `null` code (a hosted session that ended `aborted`
+returns the person with none), and `Flink::fetchSession()` reports `returnsWithCode` and
+`hostedDeadlineAt`. Positional calls with a country and an eID work as before. A hosted start needs
+flink-services with hosted starts turned on; until then FLINK refuses it with `hosted_mode_unavailable`.
 
 ## Upgrading from 0.4 to 1.0
 
