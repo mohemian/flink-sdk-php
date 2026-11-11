@@ -30,9 +30,23 @@ it('verifies a results assertion, which carries no exp', function (): void {
 });
 
 it('reads the client reference the session was started with, and null without one (FLNK-1279)', function (): void {
-    expect(Flink::results($this->resultsJwt(['clientReferenceId' => 'order-4711']))->clientReferenceId)->toBe('order-4711')
-        ->and(Flink::results($this->resultsJwt())->clientReferenceId)->toBeNull();
+    $results = Flink::results($this->resultsJwt(['clientReferenceId' => 'order-4711', 'clientReferenceSource' => 'api']));
+
+    expect($results->clientReferenceId)->toBe('order-4711')
+        ->and($results->clientReferenceSource)->toBe('api')
+        ->and(Flink::results($this->resultsJwt())->clientReferenceId)->toBeNull()
+        ->and(Flink::results($this->resultsJwt())->clientReferenceSource)->toBeNull();
 });
+
+it('reads where the client reference came from, and drops a source it does not know (FLNK-1279)', function (mixed $source, ?string $expected): void {
+    expect(Flink::results($this->resultsJwt(['clientReferenceId' => 'order-1', 'clientReferenceSource' => $source]))->clientReferenceSource)
+        ->toBe($expected);
+})->with([
+    'link' => ['link', 'link'],
+    'embed' => ['embed', 'embed'],
+    'unknown' => ['admin', null],
+    'not a string' => [1, null],
+]);
 
 it('rejects a results claim', function (array $claims, string $message): void {
     expect(fn () => Flink::results($this->resultsJwt($claims)))->toThrow(InvalidAssertion::class, $message);

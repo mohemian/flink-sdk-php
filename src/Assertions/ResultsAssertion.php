@@ -30,8 +30,18 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
         public readonly string $journeyId,
         public readonly string $id,
         public readonly CarbonImmutable $issuedAt,
-        /** Your own reference for the session, as you passed it at its start (FLNK-1279); null when none. */
+        /**
+         * Your own reference for the session, as it was given at its start (FLNK-1279); null when none.
+         * Match on it only when `$clientReferenceSource` is `api`.
+         */
         public readonly ?string $clientReferenceId = null,
+        /**
+         * Where `$clientReferenceId` came from, set by FLINK: `api` your backend sent it with your
+         * credentials, `link` a flow link carried it, `embed` the browser SDK's `reference`. Only
+         * `api` is bound to you; null when there is no reference or FLINK names a source this
+         * version does not know.
+         */
+        public readonly ?string $clientReferenceSource = null,
     ) {}
 
     public static function type(): string
@@ -105,6 +115,7 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
             self::stringClaim($claims, 'jti'),
             CarbonImmutable::createFromTimestamp(self::intClaim($claims, 'iat')),
             is_string($claims['clientReferenceId'] ?? null) ? $claims['clientReferenceId'] : null,
+            in_array($claims['clientReferenceSource'] ?? null, ['api', 'link', 'embed'], true) ? $claims['clientReferenceSource'] : null,
         );
     }
 

@@ -261,7 +261,10 @@ lives five minutes and is issued once.
 
 Pass `clientReferenceId: $order->id` to tag the session with your own id (an order, a case, a
 customer; FLNK-1279). FLINK signs it into the result, and `$results->clientReferenceId` reads it
-back; it is `null` for a session started without one, and FLINK does not check that it is unique.
+back, with `$results->clientReferenceSource` saying where FLINK got it: `api` (your backend, as
+here), `link` (a flow link's query parameter) or `embed` (the browser SDK's `reference`). Match a
+result to your record on it only when the source is `api`. It is `null` for a session started
+without one, and FLINK does not check that it is unique.
 It is up to 128 characters from `A-Z a-z 0-9 . _ : -` (anything else throws
 `InvalidArgumentException` before FLINK is called), and holds no personal data. A flow link takes
 the same value as its `client_reference_id` query parameter, but a value in a link is not
