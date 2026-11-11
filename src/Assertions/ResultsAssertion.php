@@ -38,7 +38,8 @@ final class ResultsAssertion extends Assertion implements \JsonSerializable, Arr
         /**
          * Where `$clientReferenceId` came from, set by FLINK: `api` your backend sent it with your
          * credentials, `link` a flow link carried it, `embed` the browser SDK's `reference`. Only
-         * `api` is bound to you; null when there is no reference or FLINK names a source this
+         * `api` is bound to you, and FLINK says it only to the client that started the session; null
+         * when there is no reference, when another client set it, or when FLINK names a source this
          * version does not know.
          */
         public readonly ?string $clientReferenceSource = null,
