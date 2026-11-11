@@ -234,26 +234,25 @@ it("passes FLINK's hosted-mode refusals on", function (string $code): void {
     }
 })->with(['hosted_mode_unavailable', 'country_required', 'consent_needs_eid_entry', 'notice_required', 'consent_required']);
 
-it('lets the eID go without a country to FLINK, which refuses it', function (): void {
-    $this->startAnswer = fn (): mixed => Http::response(['statusCode' => 400, 'code' => 'country_required'], 400);
-
-    expect(fn () => Flink::startSession(TestCase::JOURNEY, eidEntry: 2))->toThrow(SessionRefused::class);
-    Http::assertSent(fn (Request $request): bool => $request->url() === LINK_START_URL && $request->data() === ['eid_entry' => 2]);
+it('refuses an eID without a country before spending a start', function (): void {
+    expect(fn () => Flink::startSession(TestCase::JOURNEY, eidEntry: 2))->toThrow(InvalidArgumentException::class);
+    Http::assertNothingSent();
 });
 
-// A hosted session that ends aborted returns the person with no code: there is nothing to confirm.
+// A return with no code (a session that did not complete) has nothing to confirm.
 it('confirms nothing, and asks FLINK nothing, for a return that came without a code', function (): void {
     expect(Flink::completeReturn(TestCase::SESSION, null))->toBeFalse();
     Http::assertNotSent(fn (Request $request): bool => $request->url() === LINK_RETURN_URL);
 });
 
-it('says an aborted hosted session has no result, with no reason before its deadline', function (?string $reason): void {
-    $this->resultsAnswer = fn (): mixed => Http::response(array_filter(['statusCode' => 409, 'status' => 'aborted', 'reason' => $reason]), 409);
+// An abandoned hosted session reads started, then link_expired at its deadline; services never says aborted.
+it('says a hosted session has no result, started before its deadline and link_expired at it', function (string $status, ?string $reason): void {
+    $this->resultsAnswer = fn (): mixed => Http::response(array_filter(['statusCode' => 409, 'status' => $status, 'reason' => $reason]), 409);
 
     try {
         Flink::fetchResult(TestCase::SESSION);
         $this->fail('no exception');
     } catch (ResultUnavailable $e) {
-        expect($e->status)->toBe(409)->and($e->sessionStatus)->toBe('aborted')->and($e->reason)->toBe($reason);
+        expect($e->status)->toBe(409)->and($e->sessionStatus)->toBe($status)->and($e->reason)->toBe($reason);
     }
-})->with([null, 'link_expired', 'return_expired']);
+})->with([['started', null], ['aborted', 'link_expired'], ['aborted', 'return_expired']]);

@@ -10,7 +10,7 @@ namespace Mohemian\Flink\Exceptions;
  * `unknown_eid_entry`, `eid_entry_not_redirect` (an eID FLINK cannot link to, such as Swedish
  * BankID), `journey_needs_interaction` (`step` names the step that needs the person),
  * `no_return_link`, `journey_not_runnable`. A start without an eID (hosted, FLNK-1272) adds
- * `country_required` (an eID without a country), `hosted_mode_unavailable` (FLINK has not turned hosted
+ * `country_required` (an eID without a country, which this package refuses before asking), `hosted_mode_unavailable` (FLINK has not turned hosted
  * starts on yet: start with a country and an eID, or send a journey link), and, for a journey that
  * requires the person's consent or notice on some route, `notice_required` or `consent_required`
  * (a hosted person picks the route on FLINK's screens, so FLINK cannot collect it). Also

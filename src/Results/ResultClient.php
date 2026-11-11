@@ -148,13 +148,17 @@ final readonly class ResultClient
      *
      * @param  array{revision?: string, locale?: string}|null  $notice
      *
-     * @throws \InvalidArgumentException a `$clientReferenceId` FLINK would refuse
+     * @throws \InvalidArgumentException an `$eidEntry` without a `$country`, or a `$clientReferenceId` FLINK would refuse
      * @throws SessionRefused FLINK will not start it, and says why
      * @throws ResultUnavailable 403 a client without `flow-session:write` or not a relying party's backend, 404 a journey this credential may not start, 429 too many starts, or FLINK unreachable
      * @throws MissingConfiguration
      */
     public function startSession(string $journey, ?string $country, ?int $eidEntry, ?string $clientIp, ?string $userAgent, ?array $notice = null, ?string $clientReferenceId = null): LinkSession
     {
+        // A mistake in the caller's code, so refused before a rate-limited start is spent on it.
+        if ($eidEntry !== null && $country === null) {
+            throw new \InvalidArgumentException('an eID entry needs its country');
+        }
         // The shape FLINK accepts (FLNK-1279): a mistake in the caller's code, so refused before any call.
         if ($clientReferenceId !== null && preg_match('/^[A-Za-z0-9._:-]{1,128}$/D', $clientReferenceId) !== 1) {
             throw new \InvalidArgumentException('clientReferenceId must be 1 to 128 characters from A-Z a-z 0-9 . _ : -');
@@ -183,7 +187,7 @@ final readonly class ResultClient
     /**
      * Confirm the person came back with the session's return code (FLNK-1182): true when FLINK
      * released the result (again on a repeat), false for a wrong, expired or foreign code, or none:
-     * a hosted session that ended aborted returns the person with no code (FLNK-1272).
+     * a session that did not complete returns the person with no code.
      *
      * @throws ResultUnavailable
      * @throws MissingConfiguration
