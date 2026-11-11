@@ -60,6 +60,19 @@ it('leaves out an empty notice attestation', function (): void {
         && $request->data() === ['country' => 'at', 'eid_entry' => 2]);
 });
 
+it('sends its client reference (FLNK-1279)', function (): void {
+    Flink::startSession(TestCase::JOURNEY, 'at', 2, clientReferenceId: 'case:4711');
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === LINK_START_URL
+        && $request->data() === ['country' => 'at', 'eid_entry' => 2, 'client_reference_id' => 'case:4711']);
+});
+
+it('refuses a client reference FLINK would refuse, without calling it (FLNK-1279)', function (string $reference): void {
+    expect(fn () => Flink::startSession(TestCase::JOURNEY, 'at', 2, clientReferenceId: $reference))
+        ->toThrow(InvalidArgumentException::class);
+    Http::assertNotSent(fn (Request $request): bool => $request->url() === LINK_START_URL);
+})->with(['empty' => [''], 'a space' => ['case 4711'], 'too long' => [str_repeat('a', 129)], 'an email address' => ['erika@example.com'], 'a trailing newline' => ["case\n"]]);
+
 it('leaves out the person fields it was not given', function (): void {
     Flink::startSession(TestCase::JOURNEY, 'at', 2);
 

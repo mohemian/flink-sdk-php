@@ -259,6 +259,20 @@ cookie on a cross-site redirect from FLINK, so it needs `SameSite=Lax` (Laravel'
 arrives without your session: log them in there before confirming, or start a new session. The code
 lives five minutes and is issued once.
 
+Pass `clientReferenceId: $order->id` to tag the session with your own id (an order, a case, a
+customer; FLNK-1279). FLINK signs it into the result, and `$results->clientReferenceId` reads it
+back, with `$results->clientReferenceSource` saying where FLINK got it: `api` (your backend, as
+here), `link` (a flow link's query parameter) or `embed` (the browser SDK's `reference`). Match a
+result to your record on it only when the source is `api`, which FLINK says only to the client that
+started the session. It is `null` for a session started without one, and FLINK does not check that it is unique.
+It is up to 128 characters from `A-Z a-z 0-9 . _ : -` (anything else throws
+`InvalidArgumentException` before FLINK is called), and holds no personal data. A flow link takes
+the same value as its `client_reference_id` query parameter. This needs flink-services #1541, and
+links carry the reference only once flink-web #463 is merged. A value in a link is not
+authenticated: whoever holds the link can change it, so treat it as an unverified hint, never as
+proof of who started the session. Bind your record on `sessionId`, or on a reference whose source
+is `api`, never on a `link` or `embed` value.
+
 Once your start page shows the journey's applicant notice, attest it on the start with
 `notice: ['revision' => …, 'locale' => …]`: the `revision` FLINK served and the BCP 47 locale you
 showed it in. FLINK does not require it yet (FLNK-1184).
