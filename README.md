@@ -391,6 +391,12 @@ $fake->serveResults(['givenName' => ['value' => 'Erika', 'source' => 'urn:flink:
 Flink::fetchResult($sessionId);                               // answered without FLINK, no key needed
 ```
 
+## Upgrading from 1.1 to 1.2
+
+1.2 adds `FLINK_PREFILL_V2` (`prefill.accept_v2`, default off): until you set it to `true`, a v2 prefill
+receipt is refused. Setting the variable is enough, also with a `config/flink.php` published before 1.2:
+the package fills in a `prefill` key your file lacks.
+
 ## Upgrading from 1.0 to 1.1
 
 1.1 (FLNK-1272) is backwards compatible; nothing to change. `Flink::startSession()` now takes the country

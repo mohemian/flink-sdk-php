@@ -150,3 +150,9 @@ it('keeps email out of a v1 prefill\'s identity-verified fields', function (stri
     $claims = $this->claims(['data' => ['givenName' => 'Erika', 'email' => 'e@example.test', 'emailVerified' => true]]);
     expect(Flink::prefill($this->jwt($claims), TestCase::REF)->identityVerified($field))->toBe($verified);
 })->with([['givenName', true], ['email', false], ['emailVerified', false]]);
+
+it('refuses to treat a v1 prefill from a document or device route as identity-verified', function (string $method, bool $verified): void {
+    config(['flink.prefill.allowed_methods' => ['eid', 'wallet', 'nfc', 'doc']]);
+    $claims = $this->claims(['method' => $method]);
+    expect(Flink::prefill($this->jwt($claims), TestCase::REF)->identityVerified('givenName'))->toBe($verified);
+})->with([['eid', true], ['wallet', true], ['nfc', false], ['doc', false]]);
