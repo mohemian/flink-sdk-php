@@ -31,6 +31,12 @@ return [
         // (ID Austria, SkIDentity or SK Authentigate); the claim does not name the provider.
         'allowed_methods' => ['eid'],
 
+        // Accept `ver: 2` receipts, which also sign values the applicant entered inside FLINK and name no
+        // identity route when none ran. With this off, `allowed_methods => ['eid']` keeps meaning "eID-backed
+        // data only". Turn it on once your code reads `identityVerified()`/`source()` instead of treating
+        // everything signed as verified.
+        'accept_v2' => filter_var(env('FLINK_PREFILL_V2', false), FILTER_VALIDATE_BOOL),
+
         // Where `Flink::reference()` keeps this session's reference.
         'session_key' => 'flink.reference',
     ],

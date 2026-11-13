@@ -16,6 +16,9 @@ final class FlinkServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/flink.php', 'flink');
+        // mergeConfigFrom merges top-level keys only: a `prefill` published before a key existed lacks it.
+        $config = $this->app->make('config');
+        $config->set('flink.prefill', (array) $config->get('flink.prefill') + (require __DIR__.'/../config/flink.php')['prefill']);
 
         $this->app->singleton(KeySet::class, function ($app): JwksKeySet {
             $config = $app['config']['flink'];

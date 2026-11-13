@@ -67,7 +67,7 @@ it('rejects a claim', function (array $claims, string $message): void {
     'expired' => [['exp' => time() - 60], 'expired'],
     'not yet valid' => [['iat' => time() + 3600], 'not yet valid'],
     'no exp' => [['exp' => null], 'Claim exp is missing'],
-    'wrong version' => [['ver' => 2], 'Claim ver does not match'],
+    'wrong version' => [['ver' => 3], 'Claim ver does not match'],
     'no data' => [['data' => null], 'Claim data is missing'],
     'no session_id' => [['session_id' => null], 'Claim session_id is missing'],
     'no jti' => [['jti' => null], 'Claim jti is missing'],

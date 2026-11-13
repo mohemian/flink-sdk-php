@@ -37,6 +37,11 @@ final class InvalidAssertion extends FlinkException
         return new self('The data does not come from an accepted method');
     }
 
+    public static function receiptNotEnabled(): self
+    {
+        return new self('Version 2 prefill receipts are not enabled (flink.prefill.accept_v2)');
+    }
+
     public static function noReference(): self
     {
         return new self('No FLINK reference in this session to check the prefill against');

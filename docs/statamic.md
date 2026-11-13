@@ -10,12 +10,12 @@ What you end up with:
 | Field                            | On submit                                                                              |
 | -------------------------------- | -------------------------------------------------------------------------------------- |
 | First name, last name, birthdate | Must equal what ID Austria returned, or the submission is rejected                     |
-| Address                          | May be changed (people move); stored with `address_verified` off when it was          |
+| Address                          | May be changed; `address_verified` is off for changed or applicant-declared addresses |
 | Not prefilled at all             | Accepted, stored with `identity_verified` off: your call what that means for you       |
 
 How it works: when the applicant finishes ID Austria, the page receives the data for the form and the
 same data signed by FLINK (`prefillJwt`). The page posts the signed copy to your backend right away;
-the backend verifies it and keeps the verified data in the visitor's session. On submit, the form's
+the backend authenticates it and keeps the signed data and provenance in the visitor’s session. On submit, the form's
 values are compared with that. The signed copy is valid for 5 minutes, so verifying it immediately
 means a slow applicant is never caught out by the expiry.
 
@@ -219,10 +219,10 @@ class VerifyFlinkPrefill
         }
 
         // A field the journey did not release was never checked, so it is not verified.
-        $submission->set('identity_verified', array_diff(self::LOCKED, array_keys($released)) === []);
+        $submission->set('identity_verified', array_filter(self::LOCKED, fn (string $field): bool => ! $prefill->identityVerified($field)) === []);
         $submission->set(
             'address_verified',
-            array_diff(self::ADDRESS, array_keys($released)) === [] && array_intersect(self::ADDRESS, $changed) === [],
+            $prefill->identityVerified('address') && array_diff(self::ADDRESS, array_keys($released)) === [] && array_intersect(self::ADDRESS, $changed) === [],
         );
 
         // One ID Austria run, one application: the next one in this session needs its own.
@@ -239,6 +239,11 @@ The rotation runs on `afterSave`, which Statamic only calls when the form stores
 instead.
 
 Laravel discovers the listener by its type hint; nothing to register.
+
+Version-2 receipts are accepted only with `FLINK_PREFILL_V2=true` (`prefill.accept_v2`); they also sign an address entered inside Flink. Its signature proves what was
+shared, while `identityVerified('address')` stays false for its `applicant_declared` source.
+An unchanged declared address can therefore be accepted without being labelled identity-verified.
+The helper is conservative for document/device results; this guide specifically uses ID Austria.
 
 Only fields the journey releases can be compared. A locked field it does not release leaves
 `identity_verified` off rather than passing unchecked, so release all three; likewise an address
