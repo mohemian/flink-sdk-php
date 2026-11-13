@@ -4,6 +4,8 @@ use Mohemian\Flink\Exceptions\InvalidAssertion;
 use Mohemian\Flink\Facades\Flink;
 use Mohemian\Flink\Tests\TestCase;
 
+beforeEach(fn () => config(['flink.prefill.accept_v2' => true]));
+
 function receiptClaims(): array
 {
     return [
@@ -112,3 +114,39 @@ it('keeps declared provenance after a v2 prefill is restored from a server sessi
         ->and($restored->identityVerified('address'))->toBeFalse()
         ->and($restored->changed($original->data))->toBe([]);
 });
+
+it('refuses a v2 receipt until it is enabled, whatever methods are allowed', function (?bool $enabled): void {
+    config(['flink.prefill.accept_v2' => $enabled]);
+    expect(fn () => Flink::prefill($this->jwt(receiptClaims()), TestCase::REF))
+        ->toThrow(InvalidAssertion::class, 'not enabled');
+    config(['flink.prefill.accept_v2' => true]);
+    expect(Flink::prefill($this->jwt(receiptClaims()), TestCase::REF)->version)->toBe(2);
+})->with([false, null]);
+
+it('never treats the email an eID or wallet journey signs as identity-verified', function (string $method, string $source, bool $verified): void {
+    config(['flink.prefill.allowed_methods' => ['eid', 'wallet']]);
+    $claims = receiptClaims();
+    $claims['method'] = $method;
+    $claims['data']['email'] = 'erika@example.test';
+    $claims['provenance']['email'] = ['source' => $source, 'obtainedAt' => '2026-11-13T12:00:00Z'];
+    expect(Flink::prefill($this->jwt($claims), TestCase::REF)->identityVerified('email'))->toBe($verified);
+})->with([
+    'eid, email source' => ['eid', 'urn:flink:source:email-verification:flink', false],
+    'wallet, email source' => ['wallet', 'urn:flink:source:email-verification:flink', false],
+    'eid, wallet source' => ['eid', 'urn:flink:source:wallet:openid4vp', false],
+    'wallet, eid source' => ['wallet', TestCase::EID, false],
+    'eid, eid source' => ['eid', TestCase::EID, true],
+    'wallet, wallet source' => ['wallet', 'urn:flink:source:wallet:openid4vp', true],
+]);
+
+it('refuses a provenance check it does not know', function (): void {
+    $claims = receiptClaims();
+    $claims['method'] = 'eid';
+    $claims['provenance']['givenName']['check'] = 'other';
+    expect(fn () => Flink::prefill($this->jwt($claims), TestCase::REF))->toThrow(InvalidAssertion::class);
+});
+
+it('keeps email out of a v1 prefill\'s identity-verified fields', function (string $field, bool $verified): void {
+    $claims = $this->claims(['data' => ['givenName' => 'Erika', 'email' => 'e@example.test', 'emailVerified' => true]]);
+    expect(Flink::prefill($this->jwt($claims), TestCase::REF)->identityVerified($field))->toBe($verified);
+})->with([['givenName', true], ['email', false], ['emailVerified', false]]);

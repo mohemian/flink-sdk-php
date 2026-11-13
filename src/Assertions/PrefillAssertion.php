@@ -66,6 +66,7 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
             'aud' => fn (): string => self::origin((string) ($config('audience') ?: $app->make('config')->get('app.url'))),
             'journeys' => fn (): array => self::list($config('journeys')) ?: throw MissingConfiguration::for('FLINK_JOURNEY_ID'),
             'methods' => fn (): array => array_values((array) $config('allowed_methods')),
+            'v2' => fn (): bool => (bool) $config('accept_v2'),
             'reference' => fn (): ?string => $app->make(Flink::class)->currentReference(),
         ];
     }
@@ -77,6 +78,9 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
             throw InvalidAssertion::mismatch('ver');
         }
         self::expect($claims, 'aud', $expected['aud']);
+        if ($version === 2 && ! $expected['v2']) {
+            throw InvalidAssertion::receiptNotEnabled();
+        }
         if (! in_array($claims['journey'] ?? null, $expected['journeys'], true)) {
             throw InvalidAssertion::mismatch('journey');
         }

@@ -78,8 +78,8 @@ $rule->assertion->data;
 - signed by FLINK: RS256 only, key chosen by `kid` from FLINK's JWKS (cached a day, refetched at most
   once a minute for an unknown `kid`), header `typ` = `flow-prefill+jwt`; otherwise
   `InvalidSignature`, or `InvalidAssertion` for another `typ`
-- `iss` = `FLINK_API_HOST`, `aud` = your page's origin, not expired, `ver` = 1 or 2 (`iat` and `exp` allow
-  5 seconds of clock skew)
+- `iss` = `FLINK_API_HOST`, `aud` = your page's origin, not expired, `ver` = 1, or 2 once you set
+  `FLINK_PREFILL_V2=true` (`iat` and `exp` allow 5 seconds of clock skew)
 - `tenant_id` is yours and `journey` is one of `FLINK_JOURNEY_ID`: any FLINK tenant can register your
   origin, so `aud` alone is not enough
 - When present, `method` is one you accept (`prefill.allowed_methods`, default `['eid']`). Version 1 requires it; a v2 receipt can have no identity route. `eid` is any eID
@@ -111,16 +111,25 @@ false. Legacy tokens lack per-field provenance; that helper recognizes only thei
 eID/wallet identity fields, excluding email. A `true` still needs a separate unchanged-value check
 before marking a form submission verified.
 
-Deploy this SDK and update integrations that treat all signed data as identity-verified **before**
-enabling canonical sessions. Earlier SDK releases reject v2 instead of mislabelling its data.
+**v2 is off until you enable it.** A `composer update` within `^1` does not change what `prefill()`
+accepts: a v2 receipt throws `InvalidAssertion` while `prefill.allowed_methods => ['eid']` keeps meaning
+"eID-backed data only". Set `FLINK_PREFILL_V2=true` (`prefill.accept_v2`) once your code reads
+`identityVerified()`/`source()` rather than treating everything signed as verified. Then a v2 receipt may
+carry applicant-declared values and, when no identity route ran, a `null` `method` (the
+`allowed_methods` check applies only when `method` is present).
+
+Update integrations that treat all signed data as identity-verified **before** enabling canonical
+sessions and `FLINK_PREFILL_V2`. Earlier SDK releases reject v2 instead of mislabelling its data.
 The browser SDK already transports the opaque receipt without a protocol update.
 Already-authenticated v1 prefills stored in Laravel sessions remain readable after the SDK upgrade.
 After v2 activation, keep a v2-compatible verifier and source-aware integration on rollback too.
 
-Canonical API results additionally require a newly issued journey key carrying the explicit
-canonical-result grant. Console key creation requires both API-key creation and applicant-data
-read permission. Existing keys keep legacy reads but do not gain canonical access automatically;
-reissue them through an authorized operator. A delegated grant remains valid until the key is
+With `FLINK_API_KEY`, canonical API results additionally require a newly issued journey key carrying
+the explicit canonical-result grant. Console key creation requires both API-key creation and
+applicant-data read permission. Existing keys keep legacy reads but do not gain canonical access
+automatically; reissue them through an authorized operator. FLINK gates only API-key callers (a token
+whose subject starts with `apikey:`): a backend using `FLINK_CLIENT_KEY` (`private_key_jwt`) reads
+canonical results without a new key, so do not reissue or switch credentials for this. A delegated grant remains valid until the key is
 revoked or the grant removed; changing the issuer's later Console role does not revoke the key.
 
 `changed()` returns the signed fields the submission changed or left out, as dotted keys; pass

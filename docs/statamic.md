@@ -240,7 +240,7 @@ instead.
 
 Laravel discovers the listener by its type hint; nothing to register.
 
-Version-2 receipts also sign an address entered inside Flink. Its signature proves what was
+Version-2 receipts are accepted only with `FLINK_PREFILL_V2=true` (`prefill.accept_v2`); they also sign an address entered inside Flink. Its signature proves what was
 shared, while `identityVerified('address')` stays false for its `applicant_declared` source.
 An unchanged declared address can therefore be accepted without being labelled identity-verified.
 The helper is conservative for document/device results; this guide specifically uses ID Austria.
