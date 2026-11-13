@@ -123,7 +123,7 @@ read permission. Existing keys keep legacy reads but do not gain canonical acces
 reissue them through an authorized operator. A delegated grant remains valid until the key is
 revoked or the grant removed; changing the issuer's later Console role does not revoke the key.
 
-`changed()` returns the verified fields the submission changed or left out, as dotted keys; pass
+`changed()` returns the signed fields the submission changed or left out, as dotted keys; pass
 `only:` to compare a subset. It compares strings after trimming and Unicode NFC normalisation, and
 nothing more. A field submitted both nested and as a literal dotted key (`address[street]` and
 `address.street`), or as a literal dotted key beside a nested array under the same path

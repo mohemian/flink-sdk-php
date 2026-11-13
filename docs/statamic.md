@@ -15,7 +15,7 @@ What you end up with:
 
 How it works: when the applicant finishes ID Austria, the page receives the data for the form and the
 same data signed by FLINK (`prefillJwt`). The page posts the signed copy to your backend right away;
-the backend verifies it and keeps the verified data in the visitor's session. On submit, the form's
+the backend authenticates it and keeps the signed data and provenance in the visitor’s session. On submit, the form's
 values are compared with that. The signed copy is valid for 5 minutes, so verifying it immediately
 means a slow applicant is never caught out by the expiry.
 

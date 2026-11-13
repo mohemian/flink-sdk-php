@@ -139,21 +139,18 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
             return in_array($this->method, ['eid', 'wallet'], true)
                 && ! in_array($field, ['email', 'emailVerified'], true);
         }
-        if (in_array($this->check($field), ['applicant_declared', 'device_asserted'], true)
-            || ($this->provenance[$field]['reviewRequired'] ?? false) === true) {
-            return false;
-        }
         $source = $this->source($field);
-        if ($this->method === 'eid' && $source === 'urn:flink:source:eid:oidc') {
-            return true;
-        }
-        if ($this->method === 'wallet' && $source === 'urn:flink:source:wallet:openid4vp') {
-            return true;
-        }
 
-        return $this->method === 'doc' && str_starts_with($source ?? '', 'urn:flink:source:document:')
-            && $this->check($field) === 'server_verified'
-            && ($this->provenance[$field]['reviewRequired'] ?? true) === false;
+        return ! in_array($this->check($field), ['applicant_declared', 'device_asserted'], true)
+            && ($this->provenance[$field]['reviewRequired'] ?? false) !== true
+            && match ($this->method) {
+                'eid' => $source === 'urn:flink:source:eid:oidc',
+                'wallet' => $source === 'urn:flink:source:wallet:openid4vp',
+                'doc' => str_starts_with($source ?? '', 'urn:flink:source:document:')
+                    && $this->check($field) === 'server_verified'
+                    && ($this->provenance[$field]['reviewRequired'] ?? true) === false,
+                default => false,
+            };
     }
 
     /**
