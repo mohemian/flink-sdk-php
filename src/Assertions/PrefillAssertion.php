@@ -18,16 +18,21 @@ use Mohemian\Flink\Flink;
  */
 final class PrefillAssertion extends Assertion implements \JsonSerializable, Arrayable
 {
-    /** @param array<string, mixed> $data */
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, array<string, mixed>>  $provenance
+     */
     public function __construct(
         public readonly array $data,
         public readonly string $journey,
-        public readonly string $method,
+        public readonly ?string $method,
         public readonly string $reference,
         public readonly string $sessionId,
         /** The JWT's `jti`: one per release, the same on a retry, so accept each for one submission. */
         public readonly string $id,
         public readonly CarbonImmutable $expiresAt,
+        public readonly int $version = 1,
+        public readonly array $provenance = [],
     ) {}
 
     public static function type(): string
@@ -49,14 +54,20 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
 
     public static function fromClaims(array $claims, array $expected): static
     {
-        self::expect($claims, 'ver', 1);
+        $version = $claims['ver'] ?? null;
+        if (! in_array($version, [1, 2], true)) {
+            throw InvalidAssertion::mismatch('ver');
+        }
         self::expect($claims, 'aud', $expected['aud']);
         if (! in_array($claims['journey'] ?? null, $expected['journeys'], true)) {
             throw InvalidAssertion::mismatch('journey');
         }
-        if (! in_array($claims['method'] ?? null, $expected['methods'], true)) {
+        $method = $claims['method'] ?? null;
+        if (($version === 1 || $method !== null) && ! in_array($method, $expected['methods'], true)) {
             throw InvalidAssertion::methodNotAccepted();
         }
+        $data = self::arrayClaim($claims, 'data');
+        $provenance = $version === 2 ? self::receiptProvenance($claims, $data) : [];
         // A JWT verifies only in the session that launched it, so a stolen or borrowed one is
         // refused, while a retried submit still works.
         if (! is_string($expected['reference'])) {
@@ -65,25 +76,96 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
         self::expect($claims, 'reference', $expected['reference']);
 
         return new self(
-            self::arrayClaim($claims, 'data'),
+            $data,
             $claims['journey'],
-            $claims['method'],
+            $method,
             $expected['reference'],
             self::stringClaim($claims, 'session_id'),
             self::stringClaim($claims, 'jti'),
             // php-jwt checks `exp` only when present; FLINK always sets it, so its absence is a forgery.
             CarbonImmutable::createFromTimestamp(self::intClaim($claims, 'exp')),
+            $version,
+            $provenance,
         );
     }
 
-    /** A verified value by dotted key (`address.street`). */
+    /** A value Flink signed, by dotted key (`address.street`); inspect its source separately. */
     public function get(string $key, mixed $default = null): mixed
     {
         return data_get($this->data, $key, $default);
     }
 
+    /** The signed source of a v2 field. Legacy tokens contain no per-field provenance. */
+    public function source(string $key): ?string
+    {
+        return $this->provenance[explode('.', $key, 2)[0]]['source'] ?? null;
+    }
+
+    public function check(string $key): ?string
+    {
+        return $this->provenance[explode('.', $key, 2)[0]]['check'] ?? null;
+    }
+
     /**
-     * The verified fields the submission does not match, as dotted keys (`address.street`). Values
+     * Whether the field is backed by an accepted eID/wallet route or a server-verified document
+     * without pending review. This says nothing about whether a later submission changed it.
+     * Legacy tokens have no field provenance; only their existing eID/wallet assertion qualifies.
+     */
+    public function identityVerified(string $key): bool
+    {
+        $field = explode('.', $key, 2)[0];
+        if (! Arr::has($this->data, $key)) {
+            return false;
+        }
+        if ($this->version === 1) {
+            return in_array($this->method, ['eid', 'wallet'], true)
+                && ! in_array($field, ['email', 'emailVerified'], true);
+        }
+        if (in_array($this->check($field), ['applicant_declared', 'device_asserted'], true)
+            || ($this->provenance[$field]['reviewRequired'] ?? false) === true) {
+            return false;
+        }
+        $source = $this->source($field);
+        if ($this->method === 'eid' && $source === 'urn:flink:source:eid:oidc') {
+            return true;
+        }
+        if ($this->method === 'wallet' && $source === 'urn:flink:source:wallet:openid4vp') {
+            return true;
+        }
+
+        return $this->method === 'doc' && str_starts_with($source ?? '', 'urn:flink:source:document:')
+            && $this->check($field) === 'server_verified'
+            && ($this->provenance[$field]['reviewRequired'] ?? true) === false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $claims
+     * @param  array<string, mixed>  $data
+     * @return array<string, array<string, mixed>>
+     */
+    private static function receiptProvenance(array $claims, array $data): array
+    {
+        $provenance = self::arrayClaim($claims, 'provenance');
+        if (array_diff_key($data, $provenance) !== [] || array_diff_key($provenance, $data) !== []) {
+            throw InvalidAssertion::mismatch('provenance');
+        }
+        foreach ($provenance as $entry) {
+            if (! is_array($entry) || ! is_string($entry['source'] ?? null)
+                || ! str_starts_with($entry['source'], 'urn:flink:source:')
+                || ! is_string($entry['obtainedAt'] ?? null)
+                || ($entry['obtainedAt'] === '')
+                || (isset($entry['check']) && ! in_array($entry['check'], ['server_verified', 'device_asserted', 'applicant_declared'], true))
+                || (isset($entry['reviewRequired']) && ! is_bool($entry['reviewRequired']))
+                || (isset($entry['derivedAsOf']) && ! is_string($entry['derivedAsOf']))) {
+                throw InvalidAssertion::mismatch('provenance');
+            }
+        }
+
+        return $provenance;
+    }
+
+    /**
+     * The signed fields the submission does not match, as dotted keys (`address.street`). Values
      * are compared as strings after trimming and Unicode NFC normalisation, nothing more; a verified
      * field missing from the submission counts as changed, and fields the JWT does not carry are
      * not compared, and a field two locations flatten to (`address[street]` and a literal
@@ -111,7 +193,7 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
         return $changed;
     }
 
-    /** @return array<string, mixed> the verified data */
+    /** @return array<string, mixed> the data authenticated by Flink, including declared values */
     public function toArray(): array
     {
         return $this->data;

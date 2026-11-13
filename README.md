@@ -59,6 +59,9 @@ $prefill->data;                    // ['givenName' => 'Erika', 'familyName' => '
 $prefill->get('address.street');   // 'Hauptstraße'
 $prefill->journey; $prefill->method; $prefill->sessionId; $prefill->id; $prefill->expiresAt;
 $prefill->changed($submitted);     // e.g. ['address.street']
+$prefill->source('address');       // v2: e.g. urn:flink:source:address-capture:applicant; v1: null
+$prefill->check('address');        // v2: e.g. applicant_declared
+$prefill->identityVerified('address'); // independent of whether the form changed the signed value
 ```
 
 Or as a validation rule, which keeps the verified prefill for you:
@@ -75,11 +78,11 @@ $rule->assertion->data;
 - signed by FLINK: RS256 only, key chosen by `kid` from FLINK's JWKS (cached a day, refetched at most
   once a minute for an unknown `kid`), header `typ` = `flow-prefill+jwt`; otherwise
   `InvalidSignature`, or `InvalidAssertion` for another `typ`
-- `iss` = `FLINK_API_HOST`, `aud` = your page's origin, not expired, `ver` = 1 (`iat` and `exp` allow
+- `iss` = `FLINK_API_HOST`, `aud` = your page's origin, not expired, `ver` = 1 or 2 (`iat` and `exp` allow
   5 seconds of clock skew)
 - `tenant_id` is yours and `journey` is one of `FLINK_JOURNEY_ID`: any FLINK tenant can register your
   origin, so `aud` alone is not enough
-- `method` is one you accept (`prefill.allowed_methods`, default `['eid']`). `eid` is any eID
+- When present, `method` is one you accept (`prefill.allowed_methods`, default `['eid']`). Version 1 requires it; a v2 receipt can have no identity route. `eid` is any eID
   provider route (ID Austria, SkIDentity or SK Authentigate); the claim does not say which one
 - `reference` is this session's (or the one you pass as the second argument), so a JWT copied from
   someone else's browser fails
@@ -89,9 +92,34 @@ Everything but the signature is an `InvalidAssertion`. Two failures are delibera
 quietly: `MissingConfiguration` for an unset variable, and `KeysUnavailable` when FLINK's keys cannot
 be fetched (a wrong `FLINK_API_HOST`, or an outage).
 
-A journey with no identity step (email only, say) issues a JWT without `method`, and the prefill is
-refused. That is deliberate: nothing in such a JWT is identity-backed, the email address included,
-so it cannot stand in for a verified identity.
+A legacy journey with no identity step (email only, say) issues a v1 JWT without `method`, which
+is refused. A v2 receipt can authenticate those shared values without claiming an identity check.
+
+### Version-2 prefill receipts
+
+New-model sessions issue `ver: 2` with `data` equal to the browser prefill and signed `provenance`
+for exactly those top-level fields. A manually entered address is included, with its
+`urn:flink:source:address-capture:applicant` source and `check: applicant_declared`. Provenance
+also carries `obtainedAt`, and `derivedAsOf` or document-check metadata when applicable.
+No broader API result attributes are added to the receipt.
+
+`changed($submitted)` answers whether signed fields changed (using the normalization below).
+It does **not** decide whether an identity provider verified them. Inspect `source()`, `check()`
+or `provenance` for your policy. `identityVerified()` recognizes accepted eID/wallet sources and
+server-verified documents without pending review; device assertions and declared values return
+false. Legacy tokens lack per-field provenance; that helper recognizes only their existing
+eID/wallet identity fields, excluding email. A `true` still needs a separate unchanged-value check
+before marking a form submission verified.
+
+Deploy this SDK and update integrations that treat all signed data as identity-verified **before**
+enabling canonical sessions. Earlier SDK releases reject v2 instead of mislabelling its data.
+The browser SDK already transports the opaque receipt without a protocol update.
+
+Canonical API results additionally require a newly issued journey key carrying the explicit
+canonical-result grant. Console key creation requires both API-key creation and applicant-data
+read permission. Existing keys keep legacy reads but do not gain canonical access automatically;
+reissue them through an authorized operator. A delegated grant remains valid until the key is
+revoked or the grant removed; changing the issuer's later Console role does not revoke the key.
 
 `changed()` returns the verified fields the submission changed or left out, as dotted keys; pass
 `only:` to compare a subset. It compares strings after trimming and Unicode NFC normalisation, and
