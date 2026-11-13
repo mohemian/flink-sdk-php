@@ -83,3 +83,32 @@ it('keeps legacy prefill behavior and refuses unknown token versions', function 
         ->and($legacy->changed(['givenName' => 'Erika']))->toBe([])
         ->and(fn () => Flink::prefill($this->jwt(['ver' => 3]), TestCase::REF))->toThrow(InvalidAssertion::class);
 });
+
+it('restores legacy prefills kept in server sessions before the SDK upgrade', function (): void {
+    $current = Flink::prefill($this->jwt([]), TestCase::REF);
+    // The seven public properties serialized by the original v1 PrefillAssertion.
+    $properties = [
+        'data' => $current->data, 'journey' => $current->journey, 'method' => $current->method,
+        'reference' => $current->reference, 'sessionId' => $current->sessionId,
+        'id' => $current->id, 'expiresAt' => $current->expiresAt,
+    ];
+    $class = $current::class;
+    $serialized = 'O:'.strlen($class).':"'.$class.'":'.count($properties).':{';
+    foreach ($properties as $key => $value) {
+        $serialized .= serialize($key).serialize($value);
+    }
+    $restored = unserialize($serialized.'}');
+    expect($restored->version)->toBe(1)
+        ->and($restored->provenance)->toBe([])
+        ->and($restored->identityVerified('givenName'))->toBeTrue()
+        ->and($restored->changed(['givenName' => 'Erika']))->toBe([]);
+});
+
+it('keeps declared provenance after a v2 prefill is restored from a server session', function (): void {
+    $original = Flink::prefill($this->jwt(receiptClaims()), TestCase::REF);
+    $restored = unserialize(serialize($original));
+    expect($restored->version)->toBe(2)
+        ->and($restored->source('address'))->toBe($original->source('address'))
+        ->and($restored->identityVerified('address'))->toBeFalse()
+        ->and($restored->changed($original->data))->toBe([]);
+});

@@ -114,6 +114,8 @@ before marking a form submission verified.
 Deploy this SDK and update integrations that treat all signed data as identity-verified **before**
 enabling canonical sessions. Earlier SDK releases reject v2 instead of mislabelling its data.
 The browser SDK already transports the opaque receipt without a protocol update.
+Already-authenticated v1 prefills stored in Laravel sessions remain readable after the SDK upgrade.
+After v2 activation, keep a v2-compatible verifier and source-aware integration on rollback too.
 
 Canonical API results additionally require a newly issued journey key carrying the explicit
 canonical-result grant. Console key creation requires both API-key creation and applicant-data

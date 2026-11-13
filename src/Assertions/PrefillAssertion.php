@@ -35,6 +35,24 @@ final class PrefillAssertion extends Assertion implements \JsonSerializable, Arr
         public readonly array $provenance = [],
     ) {}
 
+    /**
+     * Laravel sessions can retain an already-authenticated v1 object across an SDK upgrade.
+     *
+     * @param  array{data: array<string, mixed>, journey: string, method: ?string, reference: string, sessionId: string, id: string, expiresAt: CarbonImmutable, version?: int, provenance?: array<string, array<string, mixed>>}  $data
+     */
+    public function __unserialize(array $data): void
+    {
+        $this->data = $data['data'];
+        $this->journey = $data['journey'];
+        $this->method = $data['method'];
+        $this->reference = $data['reference'];
+        $this->sessionId = $data['sessionId'];
+        $this->id = $data['id'];
+        $this->expiresAt = $data['expiresAt'];
+        $this->version = $data['version'] ?? 1;
+        $this->provenance = $data['provenance'] ?? [];
+    }
+
     public static function type(): string
     {
         return 'flow-prefill+jwt';
