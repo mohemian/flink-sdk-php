@@ -58,7 +58,7 @@ try {
 $prefill->data;                    // ['givenName' => 'Erika', 'familyName' => 'Mustermann', 'address' => [...]]
 $prefill->get('address.street');   // 'Hauptstraße'
 $prefill->journey; $prefill->method; $prefill->sessionId; $prefill->id; $prefill->expiresAt;
-$prefill->changed($submitted);     // e.g. ['address.street']
+$prefill->changed($submitted, only: ['givenName', 'address.street']); // only fields your form has; e.g. ['address.street']
 $prefill->source('address');       // v2: e.g. urn:flink:source:address-capture:applicant; v1: null
 $prefill->check('address');        // v2: e.g. applicant_declared
 $prefill->identityVerified('address'); // independent of whether the form changed the signed value
@@ -138,6 +138,11 @@ nothing more. A field submitted both nested and as a literal dotted key (`addres
 `address.street`), or as a literal dotted key beside a nested array under the same path
 (`address.street` and `address[street][]`), counts as changed. Which changes you accept is your policy: [docs/statamic.md](docs/statamic.md) locks
 names and birthdate and lets the address change.
+
+A signed field your form has no input for counts as left out. FLINK releases the address's
+`country` (ISO 3166-1 alpha-2) with its other parts (FLNK-1310; needs flink-services with it), so a
+form without a country field sees `address.country` in `changed()` unless you pass `only:` with the
+fields the form carries.
 
 `Flink::reference()` issues this session's reference on first use (`@flinkReference` in Blade),
 `Flink::forgetReference()` rotates it, so one journey run backs one submission. `$prefill->id` is
