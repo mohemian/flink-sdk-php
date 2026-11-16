@@ -140,9 +140,10 @@ nothing more. A field submitted both nested and as a literal dotted key (`addres
 names and birthdate and lets the address change.
 
 A signed field your form has no input for counts as left out. FLINK releases the address's
-`country` (ISO 3166-1 alpha-2) with its other parts (FLNK-1310; needs flink-services with it), so a
-form without a country field sees `address.country` in `changed()` unless you pass `only:` with the
-fields the form carries.
+`country` (ISO 3166-1 alpha-2, upper case, e.g. `AT`) with its other parts (FLNK-1310; needs
+flink-services with it), so a form without a country field sees `address.country` in `changed()`
+unless you pass `only:` with the fields the form carries. A form with one must post the code in upper
+case: `changed()` compares case-sensitively, so `at` counts as changed.
 
 `Flink::reference()` issues this session's reference on first use (`@flinkReference` in Blade),
 `Flink::forgetReference()` rotates it, so one journey run backs one submission. `$prefill->id` is
