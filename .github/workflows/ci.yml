@@ -22,6 +22,7 @@ jobs:
           php-version: '8.2'
           extensions: intl, openssl
           coverage: none
+      - run: test -f composer.lock
       - run: composer validate --strict
       - run: composer install --prefer-dist --no-interaction --no-progress
       - run: vendor/bin/pest
