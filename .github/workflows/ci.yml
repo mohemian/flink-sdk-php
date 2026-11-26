@@ -10,6 +10,23 @@ permissions:
   contents: read
 
 jobs:
+  locked:
+    name: Locked dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          extensions: intl, openssl
+          coverage: none
+      - run: composer validate --strict
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: vendor/bin/pest
+      - run: vendor/bin/phpstan analyse --no-progress --memory-limit=512M
+
   test:
     name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }}
     runs-on: ubuntu-latest

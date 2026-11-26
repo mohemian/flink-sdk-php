@@ -482,6 +482,11 @@ API key is a new last argument.
 
 ## Develop
 
+The committed `composer.lock` pins dependencies for development and the locked CI job.
+The compatibility matrix also resolves fresh dependencies, including the lowest supported versions.
+To update the lockfile, run `composer update` on PHP 8.2, run the checks below, and commit
+`composer.lock` with any dependency constraint changes in `composer.json`.
+
 ```bash
 composer install
 composer test           # Pest
