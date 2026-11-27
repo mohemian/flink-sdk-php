@@ -25,6 +25,7 @@ jobs:
       - run: test -f composer.lock
       - run: composer validate --strict
       - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer check-platform-reqs
       - run: vendor/bin/pest
       - run: vendor/bin/phpstan analyse --no-progress --memory-limit=512M
 
@@ -53,6 +54,9 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: intl, openssl
           coverage: none
+      # The committed lock targets PHP 8.2. Resolve each fresh matrix set against
+      # its real PHP runtime so Laravel 13 still exercises PHP 8.3+ dependencies.
+      - run: composer config --unset platform.php
       - run: composer require --no-update "illuminate/support:^${{ matrix.laravel }}.0" "orchestra/testbench:^${{ matrix.testbench }}.0"
       - run: composer update --prefer-dist --no-interaction --no-progress
       - run: vendor/bin/pest
