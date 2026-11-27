@@ -1,8 +1,8 @@
 # Keep dev tooling out of the package Composer installs. docs/ stays: the README links into it.
+# composer.lock is not export-ignored: while it was, Aikido reported the repo as having no lockfile (FLNK-1589).
 /.github                  export-ignore
 /.gitattributes           export-ignore
 /.gitignore               export-ignore
-/composer.lock            export-ignore
 /tests                    export-ignore
 /phpstan.neon             export-ignore
 /phpunit.xml              export-ignore
