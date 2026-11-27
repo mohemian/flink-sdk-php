@@ -483,7 +483,9 @@ API key is a new last argument.
 ## Develop
 
 The committed `composer.lock` pins dependencies for development and the locked CI job.
-The compatibility matrix also resolves fresh dependencies, including the lowest supported versions.
+`config.platform.php` keeps lockfile resolution compatible with PHP 8.2, including when
+Renovate or a developer runs Composer on newer PHP. The compatibility matrix removes this
+override in its temporary checkout and resolves against each actual PHP version, including Laravel 13.
 To update the lockfile, run `composer update` on PHP 8.2, run the checks below, and commit
 `composer.lock` with any dependency constraint changes in `composer.json`.
 
